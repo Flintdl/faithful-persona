@@ -1,0 +1,24 @@
+{
+  "name": "@fp/client",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Faithful Persona — Phaser 3 game client",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview --port 4173",
+    "type-check": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "phaser": "^3.90.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.3",
+    "vite": "^6.0.7",
+    "vitest": "^2.1.8",
+    "@types/node": "^22.10.2"
+  }
+}

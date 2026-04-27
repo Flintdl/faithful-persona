@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+    <meta name="theme-color" content="#2d3a2d" />
+    <meta name="description" content="Faithful Persona — cozy 2D top-down adventure RPG" />
+
+    <!-- Security: CSP rigorosa em prod (em dev o Vite injeta scripts inline, então afrouxamos) -->
+    <!-- Em produção, a CSP é definida pelo servidor de hospedagem (Cloudflare Pages, etc.) -->
+
+    <title>Faithful Persona</title>
+
+    <style>
+      :root {
+        color-scheme: dark;
+      }
+      html, body {
+        margin: 0;
+        padding: 0;
+        height: 100%;
+        overflow: hidden;
+        background: #0b0f0b;
+        font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+        color: #e8e2d0;
+      }
+      #game {
+        width: 100vw;
+        height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      #game canvas {
+        display: block;
+        max-width: 100%;
+        max-height: 100%;
+        image-rendering: pixelated;
+        image-rendering: crisp-edges;
+      }
+      #boot-loader {
+        position: fixed;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #0b0f0b;
+        color: #b9c9a3;
+        font-size: 14px;
+        letter-spacing: 0.1em;
+        z-index: 10;
+        transition: opacity 0.4s ease;
+      }
+      #boot-loader.hidden { opacity: 0; pointer-events: none; }
+    </style>
+  </head>
+  <body>
+    <div id="boot-loader">CARREGANDO FAITHFUL PERSONA…</div>
+    <div id="game" aria-label="Faithful Persona game canvas"></div>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

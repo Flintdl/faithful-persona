@@ -1,0 +1,30 @@
+{
+  "name": "faithful-persona",
+  "version": "0.1.0",
+  "private": true,
+  "description": "2D top-down cozy adventure RPG for browser — Phaser 3 + TypeScript",
+  "type": "module",
+  "scripts": {
+    "bootstrap": "node scripts/bootstrap.mjs",
+    "bootstrap:mock-only": "node scripts/bootstrap.mjs --no-docker",
+    "dev": "npm --prefix client run dev",
+    "dev:server": "npm --prefix server run dev",
+    "build": "npm --prefix client run build",
+    "preview": "npm --prefix client run preview",
+    "type-check": "npm --prefix client run type-check && npm --prefix server run type-check",
+    "lint": "biome check .",
+    "format": "biome format --write .",
+    "db:migrate": "npm --prefix server run db:migrate",
+    "db:generate": "npm --prefix server run db:generate",
+    "docker:up": "docker compose up -d",
+    "docker:down": "docker compose down",
+    "docker:reset": "docker compose down -v && docker compose up -d"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^1.9.4"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "packageManager": "pnpm@9.15.0"
+}

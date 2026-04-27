@@ -1,0 +1,50 @@
+# dependencies
+node_modules/
+.pnpm-store/
+
+# build output
+dist/
+build/
+.vite/
+.cache/
+.turbo/
+
+# env / secrets — NUNCA commitar
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+
+# logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# editor
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.recommended.json
+.idea/
+*.swp
+*.swo
+
+# test coverage
+coverage/
+.nyc_output/
+
+# typescript
+*.tsbuildinfo
+
+# database (local — geradas pelo docker-compose, com permissão root)
+postgres-data/
+redis-data/
+
+# scripts auxiliares temporários
+test-iron.mjs
