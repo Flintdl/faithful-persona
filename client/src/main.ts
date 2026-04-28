@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { phaserGameConfigBase } from '@/config/GameConfig';
 import { BootScene } from '@/scenes/BootScene';
+import { GameOverScene } from '@/scenes/GameOverScene';
 import { HudScene } from '@/scenes/HudScene';
 import { LobbyScene } from '@/scenes/LobbyScene';
 import { PreloadScene } from '@/scenes/PreloadScene';
@@ -14,7 +15,7 @@ log.info('Faithful Persona booting', {
 
 new Phaser.Game({
   ...phaserGameConfigBase,
-  scene: [BootScene, PreloadScene, LobbyScene, WorldScene, HudScene],
+  scene: [BootScene, PreloadScene, LobbyScene, WorldScene, HudScene, GameOverScene],
 });
 
 // Captura globalmente erros não tratados pra debug + futuro Sentry

@@ -7,7 +7,9 @@ import {
   PLAYER_SPEED,
   PLAYER_SPRITE_W,
 } from '@/config/GameConfig';
+import { saveSystem } from '@/systems/SaveSystem';
 import type { InputSnapshot, InputSystem } from '@/systems/InputSystem';
+import { emit } from '@/utils/EventBus';
 
 export type Facing = 'up' | 'down' | 'left' | 'right';
 
@@ -15,9 +17,16 @@ export type Facing = 'up' | 'down' | 'left' | 'right';
 // (cada anim referencia uma spritesheet diferente do Adventurer pack).
 const INITIAL_TEXTURE = 'player-idle-down';
 
+const I_FRAME_DURATION_MS = 800;
+const KNOCKBACK_FORCE = 220;
+const KNOCKBACK_DURATION_MS = 150;
+
 export class Player extends Phaser.Physics.Arcade.Sprite {
   facing: Facing = 'down';
   private attacking = false;
+  private invulnerable = false;
+  private knockbackUntil = 0;
+  private blinkTimer?: Phaser.Time.TimerEvent;
 
   declare body: Phaser.Physics.Arcade.Body;
 
@@ -53,6 +62,11 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
 
   /** Lê input e aplica velocidade. Não move por dt — Phaser physics integra. */
   override update(input: InputSnapshot): void {
+    // Durante knockback, deixa a velocidade aplicada se desenrolar
+    if (this.scene.time.now < this.knockbackUntil) {
+      return;
+    }
+
     // Durante attack, freeze de movimento e ignora outros inputs (a anim termina sozinha)
     if (this.attacking) {
       this.body.setVelocity(0, 0);
@@ -63,6 +77,9 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
       this.attacking = true;
       this.body.setVelocity(0, 0);
       this.anims.play(`player-attack-${this.facing}`, true);
+      // WorldScene escuta e spawna a hitbox (separação de concerns:
+      // player não precisa conhecer mobsGroup)
+      emit('player:attack', { x: this.x, y: this.y, facing: this.facing });
       return;
     }
 
@@ -111,6 +128,62 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     };
     const [dx, dy] = dirVec[this.facing];
     return { x: this.x + dx * distance, y: this.y + dy * distance };
+  }
+
+  /**
+   * Recebe dano de uma fonte. Aplica i-frames + knockback + blink.
+   * Reduz hp do save (server-authoritative no futuro).
+   * Emite player:damaged sempre, player:died se hp chega a 0.
+   */
+  takeDamage(amount: number, fromX: number, fromY: number): void {
+    if (this.invulnerable) return;
+    const cur = saveSystem.get();
+    const newHp = Math.max(0, cur.hp - amount);
+    saveSystem.update({ hp: newHp });
+    emit('player:damaged', { hp: newHp, maxHp: cur.maxHp });
+
+    // knockback
+    const dx = this.x - fromX;
+    const dy = this.y - fromY;
+    const dist = Math.hypot(dx, dy) || 1;
+    this.body.setVelocity((dx / dist) * KNOCKBACK_FORCE, (dy / dist) * KNOCKBACK_FORCE);
+    this.knockbackUntil = this.scene.time.now + KNOCKBACK_DURATION_MS;
+
+    if (newHp <= 0) {
+      emit('player:died');
+      // movimentação trava — WorldScene escuta e abre GameOver
+      this.invulnerable = true;
+      return;
+    }
+
+    // i-frames com blink visual
+    this.invulnerable = true;
+    this.blinkTimer?.remove();
+    let visible = true;
+    this.blinkTimer = this.scene.time.addEvent({
+      delay: 100,
+      repeat: Math.floor(I_FRAME_DURATION_MS / 100) - 1,
+      callback: () => {
+        visible = !visible;
+        this.setAlpha(visible ? 1 : 0.4);
+      },
+    });
+    this.scene.time.delayedCall(I_FRAME_DURATION_MS, () => {
+      this.invulnerable = false;
+      this.setAlpha(1);
+    });
+  }
+
+  /** Após respawn (GameOverScene), restaura controles e visibilidade. */
+  reset(x: number, y: number): void {
+    this.setPosition(x, y);
+    this.body.setVelocity(0, 0);
+    this.knockbackUntil = 0;
+    this.invulnerable = false;
+    this.attacking = false;
+    this.setAlpha(1);
+    this.facing = 'down';
+    this.anims.play('player-idle-down');
   }
 }
 

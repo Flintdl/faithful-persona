@@ -138,39 +138,53 @@ faithful-persona/
 
 ---
 
-## 4. Estado atual do projeto (2026-04-27)
+## 4. Estado atual do projeto (2026-04-28)
 
-### ✅ Pronto
-- Estrutura de pastas
-- Documentação MD completa (este arquivo + ARCHITECTURE + ROADMAP + SECURITY)
-- Setup Vite + TypeScript + Phaser 3
-- Boot/Preload com geração de texturas procedurais (placeholders enquanto não há arte hand-drawn)
-- LobbyScene estilo Fortnite (avatar central, painéis PLAY/INVENTORY/SHOP/SETTINGS, info de conta)
-- WorldScene com mapa programático: grama, terra, árvores, pedras, flores, penhasco, escada, rio, ponte de madeira
-- Player com movimentação 4-direções (WASD + setas), animação idle/walk, colisão (árvores/pedras/água/penhasco/limites)
-- Câmera top-down seguindo o player com leve interpolação
-- HudScene: corações de vida (canto inferior esquerdo) + contador de moedas (canto superior direito)
-- Coleta de moedas (overlap)
-- Interação E com objetos/NPCs (raycast direcional + DialogBox)
-- SaveSystem mockado (localStorage com schema versionado, mesmo formato da API real)
-- Transição de mapas via TriggerZone (atravessar ponte → World2 placeholder)
-- ApiClient com camada Mock que segue exatamente o contrato da API real (drop-in replacement)
+### ✅ Pronto e validado
+- Estrutura monorepo (client + server + shared)
+- Documentação MD completa (este arquivo + ARCHITECTURE + ROADMAP + SECURITY + ASSETS + RUNBOOK + HANDOFF)
+- Setup Vite + TypeScript strict + Phaser 3.90
+- Boot/Preload com **assets reais carregados** (Adventurer pack + Tiny Swords + props) e fallback procedural
+- LobbyScene estilo Fortnite — avatar com idle anim, painéis PLAY/INVENTORY/SHOP/SETTINGS, info de conta, botão JOGAR
+- WorldScene com **tilemap real** (Tiled JSON `meadow.json` 20×14 tiles de 64px), layer `ground` com `setCollisionByProperty({collides:true})`, object layer `spawns` (player_spawn, transition_forest, sign_welcome)
+- Player com movimentação 4-direções (WASD/setas), anims idle/run reais, colisão, câmera com lerp+deadzone+zoom
+- **Combate fechado**: attack via J ou clique esquerdo, hitbox transitória 220ms à frente, dano em mobs
+- **Mobs (slime, procedural)**: state machine IDLE/CHASE/HURT/DEAD, knockback, contact damage com cooldown 1s, drop de coin ao morrer
+- **Sistema de dano + i-frames + game over + respawn**: blink 800ms, knockback, GameOverScene com botão RESPAWN restaura HP+posição
+- HudScene: corações de vida (refresh em tempo real via EventBus), contador de moedas, prompt de interação E, dialog box
+- Coleta de moedas, interação com placa
+- SaveSystem com auto-save debounced 2s
 
-### 🟡 Esqueleto pronto, sem rodar (preparado pra produção real)
-- Server Fastify + Colyseus (estrutura, schema Drizzle, migrations, README)
-- Shared types entre client/server
-- Docker compose com Postgres + Redis
-- CI GitHub Actions
+### ✅ Backend funcional (validado end-to-end com curl)
+- Fastify + Postgres 16 + Redis 7 + Argon2id + iron-session
+- Routes: `/auth/{signup,login,logout,me}` + `/save` GET/PUT
+- Server-authoritative invariants em PUT /save (hp ≤ maxHp, coins ≥ 0, AUTHZ state.id === session.userId)
+- Lockout progressivo (5 falhas → 15min, 10 → 1h)
+- Rate limit 5/15min em login, login em tempo constante
+- Audit log imutável Pino + Postgres
+- Helmet com CSP rigoroso, cookie HttpOnly+Secure(prod)+SameSite=Strict
+- Drizzle ORM com migrations versionadas (`server/src/db/migrations/0000_init.sql`)
+- ApiClient mock (localStorage) e HttpApiClient (fetch) drop-in via `VITE_USE_MOCK_BACKEND`
 
-### 🔴 Backlog (próximas iterações)
-- Substituir placeholders procedurais por arte hand-drawn real (Aseprite/Tiled)
-- Implementar server real (subir Postgres+Redis, ligar ApiClient na API real)
-- Sistema de combate
-- Inventário expandido
-- Quests
-- Áudio (música ambiente + SFX)
-- Multiplayer (Colyseus já preparado)
+### 🟡 Esqueleto pronto, ainda sem rodar
+- Colyseus (multiplayer authoritative) — types/schema preparados, server não inicializa ainda
+- CI GitHub Actions (já tem workflow)
+
+### 🎯 Pendente prioritário
+- **Áudio do zero** — nada hoje (BGM ambiente + SFX coin/attack/hit/hurt/die/step/ui). Ver `DOCS/ASSETS.md` seção 0 e 3
+- **Slime placeholder → arte real** — `mob-slime` ainda procedural. Ver `DOCS/ASSETS.md` seção 2
+- **UI hearts/coin/sign placeholder → arte real** — ver `DOCS/ASSETS.md` seção 0
+- 2º mapa (forest) — `transition_forest` existe mas hoje volta pro lobby
+
+### 🔴 Backlog (médio/longo prazo)
+- NPC com diálogo + sistema de quest
+- Inventário expandido (drag&drop, equipamentos)
+- Mais mobs (variedade, bosses)
 - Mobile touch controls
+- Multiplayer (Colyseus)
+- Marketplace, shop NPC
+- i18n
+- Compliance LGPD (consent banner, export, deleção)
 
 ---
 

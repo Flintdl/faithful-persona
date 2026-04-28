@@ -8,76 +8,109 @@ import {
   MAP_TILES_W,
   TILE_SIZE,
 } from '@/config/GameConfig';
+import { DEFAULT_MAP_ID, MAPS, type MapDef } from '@/config/maps';
 import { Coin } from '@/entities/Coin';
 import { InteractableObject } from '@/entities/InteractableObject';
-import { createPlayer, type Player } from '@/entities/Player';
+import { Mob } from '@/entities/Mob';
+import { createPlayer, type Facing, type Player } from '@/entities/Player';
 import type { MapId } from '@shared/types/game.types';
 import { saveSystem } from '@/systems/SaveSystem';
 import { InputSystem } from '@/systems/InputSystem';
-import { emit } from '@/utils/EventBus';
+import { emit, on, off } from '@/utils/EventBus';
 import { log } from '@/utils/Logger';
 
 const MAP_W = MAP_TILES_W * TILE_SIZE;
 const MAP_H = MAP_TILES_H * TILE_SIZE;
 
+export type WorldInitData = {
+  mapId?: MapId;
+  /** Se vier, override do spawn point do tilemap (usado em transições) */
+  spawnX?: number;
+  spawnY?: number;
+};
+
 /**
- * WorldScene — mapa "meadow" carregado de Tiled JSON (Tiny Swords tileset).
- * Layer `ground` (grass + water + dirt) com colisão na propriedade `collides`.
- * Objetos do tilemap (`spawns` layer) definem player_spawn, transition_zone, sign.
- * Props decorativos (árvores/pedras/arbustos) são spawnados via positions array.
+ * WorldScene — agora multi-mapa via MAPS registry.
+ *
+ * Init data opcional: `scene.start('World', { mapId: 'world_forest' })`.
+ * Sem init data, usa `saveSystem.get().position.mapId` (último mapa salvo).
+ *
+ * Layer `ground` (Tiled JSON) com colisão via property `collides`.
+ * Object layer `spawns` define player_spawn, transition_*, sign_*.
+ * Props (árvores/pedras/arbustos) e mobs lidos de `MAPS[mapId]`.
  */
 export class WorldScene extends Phaser.Scene {
   private player!: Player;
   private playerUpdate!: () => void;
   private controls!: InputSystem;
+  private currentMapId!: MapId;
+  private mapDef!: MapDef;
 
   private collidersGroup!: Phaser.Physics.Arcade.StaticGroup;
   private interactablesGroup!: Phaser.GameObjects.Group;
   private coinsGroup!: Phaser.GameObjects.Group;
+  private mobsGroup!: Phaser.GameObjects.Group;
 
   private nearbyInteractable: InteractableObject | null = null;
+  private spawnPoint: { x: number; y: number } = { x: 0, y: 0 };
+  private playerAttackHandler?: (p: { x: number; y: number; facing: Facing }) => void;
+  private mobDiedHandler?: (p: { x: number; y: number }) => void;
+  private playerDiedHandler?: () => void;
+
+  /** Override de spawn vindo de init data (transição de outro mapa) */
+  private spawnOverride?: { x: number; y: number };
 
   constructor() {
     super('World');
   }
 
+  init(data: WorldInitData): void {
+    // Prioridade: init data > save state > default
+    const fromSave = saveSystem.get().position.mapId as MapId;
+    this.currentMapId = data.mapId ?? fromSave ?? DEFAULT_MAP_ID;
+    this.mapDef = MAPS[this.currentMapId];
+    if (data.spawnX !== undefined && data.spawnY !== undefined) {
+      this.spawnOverride = { x: data.spawnX, y: data.spawnY };
+    } else {
+      this.spawnOverride = undefined;
+    }
+  }
+
   create(): void {
     this.cameras.main.fadeIn(300, 0, 0, 0);
+    this.cameras.main.setBackgroundColor(this.mapDef.cameraBg);
     this.physics.world.setBounds(0, 0, MAP_W, MAP_H);
 
     this.collidersGroup = this.physics.add.staticGroup();
     this.interactablesGroup = this.add.group();
     this.coinsGroup = this.add.group();
+    this.mobsGroup = this.add.group();
 
     // === Tilemap ===
-    const map = this.make.tilemap({ key: 'map_meadow' });
+    const map = this.make.tilemap({ key: this.mapDef.tilemapKey });
     const tileset = map.addTilesetImage('world', 'tileset_world');
-    if (!tileset) throw new Error('WorldScene: failed to load tileset');
+    if (!tileset) throw new Error(`WorldScene: failed to load tileset for ${this.currentMapId}`);
     const ground = map.createLayer('ground', tileset, 0, 0);
-    if (!ground) throw new Error('WorldScene: failed to create ground layer');
+    if (!ground) throw new Error(`WorldScene: failed to create ground layer for ${this.currentMapId}`);
     ground.setDepth(-100);
     ground.setCollisionByProperty({ collides: true });
 
-    // === Decoração (árvores/pedras/arbustos) ===
+    // === Decoração ===
     this.spawnProps();
 
-    // === Spawns do tilemap ===
-    const spawnPoint = this.findObject(map, 'player_spawn');
-    const transitionZone = this.findObject(map, 'transition_forest');
-    const signSpawn = this.findObject(map, 'sign_welcome');
+    // === Sign + Player spawn (do tilemap object layer) ===
+    const playerSpawnObj = this.findObject(map, 'player_spawn');
+    const fallbackX = playerSpawnObj?.x ?? MAP_W / 2;
+    const fallbackY = playerSpawnObj?.y ?? MAP_H / 2;
+    const startX = this.spawnOverride?.x ?? this.savedXOrFallback(fallbackX);
+    const startY = this.spawnOverride?.y ?? this.savedYOrFallback(fallbackY);
+    this.spawnPoint = { x: fallbackX, y: fallbackY };
 
     // === Player ===
-    const state = saveSystem.get();
-    const startInMeadow = state.position.mapId === 'world_meadow';
-    const spawnX: number = spawnPoint?.x ?? MAP_W / 2;
-    const spawnY: number = spawnPoint?.y ?? MAP_H / 2;
-    const startX = startInMeadow ? state.position.x : spawnX;
-    const startY = startInMeadow ? state.position.y : spawnY;
-
     this.controls = new InputSystem(this);
     const created = createPlayer(this, this.controls, startX, startY);
     this.player = created.player;
-    this.player.setFacing(state.position.facing);
+    this.player.setFacing(saveSystem.get().position.facing);
     this.playerUpdate = created.updater;
 
     this.physics.add.collider(this.player, ground);
@@ -91,21 +124,30 @@ export class WorldScene extends Phaser.Scene {
       emit('coin:collected', { total: next });
     });
 
-    // === Sign (placa interativa) ===
-    if (signSpawn && signSpawn.x !== undefined && signSpawn.y !== undefined) {
-      const sign = new InteractableObject(this, signSpawn.x, signSpawn.y, 'prop-sign', {
-        id: 'sign-welcome',
-        label: 'Ler placa',
-        bodyW: 16,
-        bodyH: 8,
-        onInteract: () => emit('interact:trigger', { targetId: 'sign-welcome' }),
-      });
-      this.collidersGroup.add(sign);
-      this.interactablesGroup.add(sign);
+    // === Sign (placa interativa, opcional por mapa) ===
+    if (this.mapDef.signObjectName) {
+      const signObj = this.findObject(map, this.mapDef.signObjectName);
+      if (signObj && signObj.x !== undefined && signObj.y !== undefined) {
+        const text = this.mapDef.signText ?? '...';
+        const sign = new InteractableObject(this, signObj.x, signObj.y, 'prop-sign', {
+          id: this.mapDef.signObjectName,
+          label: 'Ler placa',
+          bodyW: 16,
+          bodyH: 8,
+          onInteract: () => emit('interact:trigger', { targetId: this.mapDef.signObjectName!, text }),
+        });
+        this.collidersGroup.add(sign);
+        this.interactablesGroup.add(sign);
+      }
     }
 
-    // === Coins ===
-    this.spawnCoins();
+    // === Mobs (varia por mapa) ===
+    this.spawnMobs();
+    this.physics.add.collider(this.mobsGroup, this.collidersGroup);
+    this.physics.add.collider(this.mobsGroup, this.mobsGroup);
+
+    // === Combat events ===
+    this.wireCombatEvents();
 
     // === Câmera ===
     const cam = this.cameras.main;
@@ -114,24 +156,41 @@ export class WorldScene extends Phaser.Scene {
     cam.setDeadzone(CAMERA_DEADZONE, CAMERA_DEADZONE);
     cam.setZoom(CAMERA_ZOOM);
 
-    // === Transição (borda direita do mapa) ===
-    if (transitionZone) {
-      const tx = transitionZone.x ?? 0;
-      const ty = transitionZone.y ?? 0;
-      const tw = transitionZone.width ?? TILE_SIZE;
-      const th = transitionZone.height ?? TILE_SIZE;
+    // === Transições (varre todas as zonas declaradas no mapDef) ===
+    for (const [objectName, targetMapId] of Object.entries(this.mapDef.transitions)) {
+      const transObj = this.findObject(map, objectName);
+      if (!transObj) {
+        log.warn(`map ${this.currentMapId}: transition object "${objectName}" not found in tilemap`);
+        continue;
+      }
+      const tx = transObj.x ?? 0;
+      const ty = transObj.y ?? 0;
+      const tw = transObj.width ?? TILE_SIZE;
+      const th = transObj.height ?? TILE_SIZE;
       const zone = this.add.zone(tx + tw / 2, ty + th / 2, tw, th);
       this.physics.add.existing(zone, true);
-      this.physics.add.overlap(this.player, zone, () => this.tryTransition('world_forest'));
+      this.physics.add.overlap(this.player, zone, () => this.tryTransition(targetMapId));
     }
 
+    // ESC volta ao lobby
     const kb = this.input.keyboard;
     kb?.once('keydown-ESC', () => this.returnToLobby());
 
-    this.events.on('shutdown', () => void saveSystem.flush());
-    this.events.on('destroy', () => void saveSystem.flush());
+    this.events.on('shutdown', () => {
+      void saveSystem.flush();
+      this.unwireCombatEvents();
+    });
+    this.events.on('destroy', () => {
+      void saveSystem.flush();
+      this.unwireCombatEvents();
+    });
 
-    log.info('WorldScene ready', { startX, startY });
+    // Banner do nome do mapa após o fade-in completar
+    this.cameras.main.once('camerafadeincomplete', () => {
+      emit('map:entered', { mapId: this.currentMapId, label: this.mapDef.label });
+    });
+
+    log.info('WorldScene ready', { mapId: this.currentMapId, startX, startY });
   }
 
   override update(): void {
@@ -139,70 +198,51 @@ export class WorldScene extends Phaser.Scene {
     this.checkInteractionPrompt();
     this.handleInteractInput();
     this.persistPosition();
+    this.mobsGroup.children.iterate((m) => {
+      (m as Mob).tick();
+      return true;
+    });
   }
 
   // ============================================================
-  // PROPS — proporção realista (árvores ~2-3x altura do player)
+  // SPAWNERS — todos lêem do mapDef (registry)
   // ============================================================
   private spawnProps(): void {
     const TREE_SCALE = 0.85;
     const BUSH_SCALE = 0.9;
     const ROCK_SCALE = 1.0;
 
-    // Árvores em CLUSTERS nas bordas (mais natural que pontos isolados)
-    // Cada cluster: tile central + 2-3 vizinhos. Y-sort por base.
-    const treeClusters: Array<[number, number]> = [
-      // borda norte (cima)
-      [2, 1], [3, 1], [3, 2],
-      [6, 1], [7, 0], [8, 1],
-      [11, 0], [12, 1], [13, 1],
-      [16, 0],
-      // borda oeste
-      [1, 4], [0, 5], [1, 6],
-      [1, 9], [0, 10], [1, 11],
-      // borda sul
-      [3, 12], [4, 13], [5, 12],
-      [9, 13], [10, 12], [11, 13],
-      [14, 12], [15, 13],
-      // borda leste (longe da transição em y=4-7)
-      [18, 1], [18, 2],
-      [18, 10], [18, 11], [18, 12],
-    ];
-    for (const [tx, ty] of treeClusters) {
+    for (const [tx, ty] of this.mapDef.treeClusters) {
       const px = tx * TILE_SIZE + TILE_SIZE / 2 + ((tx * 13) % 12 - 6);
-      const py = ty * TILE_SIZE + TILE_SIZE + ((ty * 7) % 8); // jitter sutil
+      const py = ty * TILE_SIZE + TILE_SIZE + ((ty * 7) % 8);
       const tree = this.add.sprite(px, py, 'prop-tree', 0).setOrigin(0.5, 1).setScale(TREE_SCALE);
       tree.setDepth(py);
-      // hitbox no tronco apenas (parte de baixo)
       this.addStaticCollider(px, py - 12, 28, 14);
     }
 
-    // Pedras em clusters perto do lago e bordas
-    const rocks: Array<[number, number, string]> = [
-      [5, 3, 'prop-rock-1'], [5, 4, 'prop-rock-2'],
-      [15, 5, 'prop-rock-3'], [15, 6, 'prop-rock-1'],
-      [3, 8, 'prop-rock-2'], [4, 9, 'prop-rock-3'],
-      [16, 9, 'prop-rock-1'],
-      [9, 11, 'prop-rock-2'],
-    ];
-    for (const [tx, ty, key] of rocks) {
+    for (const [tx, ty, key] of this.mapDef.rocks) {
       const px = tx * TILE_SIZE + TILE_SIZE / 2;
       const py = ty * TILE_SIZE + TILE_SIZE / 2;
       this.add.image(px, py, key).setOrigin(0.5, 0.7).setScale(ROCK_SCALE).setDepth(py);
       this.addStaticCollider(px, py + 6, 40, 18);
     }
 
-    // Arbustos preenchendo espaços vazios
-    const bushes: Array<[number, number]> = [
-      [4, 6], [6, 4], [13, 3], [14, 6],
-      [5, 11], [13, 11], [16, 11],
-      [4, 2], [15, 11],
-    ];
-    for (const [tx, ty] of bushes) {
+    for (const [tx, ty] of this.mapDef.bushes) {
       const px = tx * TILE_SIZE + TILE_SIZE / 2 + ((tx * 11) % 10 - 5);
       const py = ty * TILE_SIZE + TILE_SIZE / 2;
       this.add.sprite(px, py, 'prop-bush', 0).setOrigin(0.5, 0.7).setScale(BUSH_SCALE).setDepth(py);
       this.addStaticCollider(px, py + 10, 50, 22);
+    }
+  }
+
+  private spawnMobs(): void {
+    for (const [x, y] of this.mapDef.mobSpawns) {
+      const mob = new Mob(this, x, y);
+      mob.setTarget(this.player);
+      mob.setOnContactDamage(() => {
+        this.player.takeDamage(1, mob.x, mob.y);
+      });
+      this.mobsGroup.add(mob);
     }
   }
 
@@ -214,26 +254,96 @@ export class WorldScene extends Phaser.Scene {
   }
 
   // ============================================================
-  // MOEDAS — espalhadas pelo mapa, evitando lago/dirt
+  // COMBAT EVENTS
   // ============================================================
-  private spawnCoins(): void {
-    // posições em pixel, longe do lago (cols 7-12, rows 5-8 = px 448-832, 320-576)
-    const positions: Array<[number, number]> = [
-      [200, 200], [400, 250], [600, 350],
-      [350, 700], [550, 700], [750, 750],
-      [900, 200], [1100, 400], [1100, 700],
-    ];
-    for (const [x, y] of positions) {
+  private wireCombatEvents(): void {
+    this.playerAttackHandler = ({ x, y, facing }) => {
+      this.spawnPlayerAttackHitbox(x, y, facing);
+    };
+    on('player:attack', this.playerAttackHandler);
+
+    this.mobDiedHandler = ({ x, y }) => {
       this.coinsGroup.add(new Coin(this, x, y));
-    }
+    };
+    on('mob:died', this.mobDiedHandler);
+
+    this.playerDiedHandler = () => {
+      this.cameras.main.fadeOut(400, 60, 10, 10);
+      this.cameras.main.once('camerafadeoutcomplete', () => {
+        this.scene.pause();
+        this.scene.launch('GameOver');
+      });
+    };
+    on('player:died', this.playerDiedHandler);
+  }
+
+  private unwireCombatEvents(): void {
+    if (this.playerAttackHandler) off('player:attack', this.playerAttackHandler);
+    if (this.mobDiedHandler) off('mob:died', this.mobDiedHandler);
+    if (this.playerDiedHandler) off('player:died', this.playerDiedHandler);
+  }
+
+  private spawnPlayerAttackHitbox(x: number, y: number, facing: Facing): void {
+    const reach = 36;
+    const wide = 36;
+    const dirOffsets: Record<Facing, [number, number, number, number]> = {
+      up: [0, -reach, wide, reach],
+      down: [0, reach, wide, reach],
+      left: [-reach, 0, reach, wide],
+      right: [reach, 0, reach, wide],
+    };
+    const [dx, dy, w, h] = dirOffsets[facing];
+    const zone = this.add.zone(x + dx, y + dy, w, h);
+    this.physics.add.existing(zone, true);
+
+    const hitOnce = new Set<Mob>();
+    const overlap = this.physics.add.overlap(zone, this.mobsGroup, (_z, mobObj) => {
+      const mob = mobObj as Mob;
+      if (hitOnce.has(mob)) return;
+      hitOnce.add(mob);
+      mob.takeDamage(1, x, y);
+    });
+
+    this.time.delayedCall(220, () => {
+      overlap.destroy();
+      zone.destroy();
+    });
+  }
+
+  /** Chamado pela GameOverScene quando o user clica RESPAWN. */
+  respawnPlayer(): void {
+    const cur = saveSystem.get();
+    saveSystem.update({ hp: cur.maxHp });
+    emit('player:healed', { hp: cur.maxHp, maxHp: cur.maxHp });
+    this.player.reset(this.spawnPoint.x, this.spawnPoint.y);
+    saveSystem.update({
+      position: {
+        mapId: this.currentMapId,
+        x: this.spawnPoint.x,
+        y: this.spawnPoint.y,
+        facing: 'down',
+      },
+    });
+    this.scene.resume();
+    this.cameras.main.fadeIn(300, 0, 0, 0);
   }
 
   // ============================================================
-  // HELPERS
+  // HELPERS / BOILERPLATE
   // ============================================================
   private findObject(map: Phaser.Tilemaps.Tilemap, name: string): Phaser.Types.Tilemaps.TiledObject | undefined {
     const layer = map.getObjectLayer('spawns');
     return layer?.objects.find((o) => o.name === name);
+  }
+
+  /** Restaura X salvo se o save é do mapa atual; senão usa spawn do tilemap. */
+  private savedXOrFallback(fallback: number): number {
+    const pos = saveSystem.get().position;
+    return pos.mapId === this.currentMapId ? pos.x : fallback;
+  }
+  private savedYOrFallback(fallback: number): number {
+    const pos = saveSystem.get().position;
+    return pos.mapId === this.currentMapId ? pos.y : fallback;
   }
 
   private checkInteractionPrompt(): void {
@@ -263,13 +373,14 @@ export class WorldScene extends Phaser.Scene {
   private persistPosition(): void {
     const state = saveSystem.get();
     const moved =
+      state.position.mapId !== this.currentMapId ||
       Math.abs(state.position.x - this.player.x) > 8 ||
       Math.abs(state.position.y - this.player.y) > 8 ||
       state.position.facing !== this.player.facing;
     if (moved) {
       saveSystem.update({
         position: {
-          mapId: 'world_meadow',
+          mapId: this.currentMapId,
           x: Math.round(this.player.x),
           y: Math.round(this.player.y),
           facing: this.player.facing,
@@ -279,16 +390,19 @@ export class WorldScene extends Phaser.Scene {
   }
 
   private tryTransition(to: MapId): void {
-    if (saveSystem.get().position.mapId === to) return;
-    log.info('map transition', { from: 'world_meadow', to });
-    saveSystem.update({
-      position: { mapId: to, x: MAP_W / 2, y: 80, facing: 'down' },
-    });
+    if (to === this.currentMapId) return;
+    const targetDef = MAPS[to];
+    if (!targetDef) {
+      log.warn(`tryTransition: unknown mapId "${to}"`);
+      return;
+    }
+    log.info('map transition', { from: this.currentMapId, to });
+    emit('map:transition', { from: this.currentMapId, to });
     void saveSystem.flush();
     this.cameras.main.fadeOut(400, 0, 0, 0);
     this.cameras.main.once('camerafadeoutcomplete', () => {
-      this.scene.stop('Hud');
-      this.scene.start('Lobby');
+      // restart com novo mapId — init() roda de novo, props/mobs/transições do novo mapa
+      this.scene.restart({ mapId: to } satisfies WorldInitData);
     });
   }
 

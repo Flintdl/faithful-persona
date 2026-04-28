@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { PLAYER_SPRITE_H, PLAYER_SPRITE_W } from '@/config/GameConfig';
+import { MAPS } from '@/config/maps';
 import { AssetGenerator } from '@/gen/AssetGenerator';
 import { log } from '@/utils/Logger';
 
@@ -24,15 +25,22 @@ export class BootScene extends Phaser.Scene {
       }
     }
 
-    // === Tiny Swords (mundo) — tilemap + tileset + props ===
-    // Carrega ANTES do AssetGenerator rodar em create() pra precedência sobre procedurais.
+    // === Tiny Swords (mundo) — tileset compartilhado + props ===
     this.load.image('tileset_world', 'assets/tilemaps/tileset.png');
-    this.load.tilemapTiledJSON('map_meadow', 'assets/tilemaps/meadow.json');
     this.load.spritesheet('prop-tree', 'assets/sprites/world/tree.png', { frameWidth: 192, frameHeight: 256 });
     this.load.spritesheet('prop-bush', 'assets/sprites/world/bush.png', { frameWidth: 128, frameHeight: 128 });
     this.load.image('prop-rock-1', 'assets/sprites/world/rock1.png');
     this.load.image('prop-rock-2', 'assets/sprites/world/rock2.png');
     this.load.image('prop-rock-3', 'assets/sprites/world/rock3.png');
+
+    // === Tilemaps — loop sobre MAPS registry (DRY pra adicionar novos) ===
+    // Dedup por tilemapKey (world_village hoje é alias de meadow → não recarrega)
+    const loaded = new Set<string>();
+    for (const m of Object.values(MAPS)) {
+      if (loaded.has(m.tilemapKey)) continue;
+      loaded.add(m.tilemapKey);
+      this.load.tilemapTiledJSON(m.tilemapKey, m.jsonPath);
+    }
   }
 
   create(): void {

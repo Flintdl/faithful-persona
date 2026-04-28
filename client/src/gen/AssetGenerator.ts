@@ -26,6 +26,7 @@ export class AssetGenerator {
     this.generatePlayer();
     this.generateCoin();
     this.generateUi();
+    this.generateMob();
   }
 
   // ============================================================
@@ -667,6 +668,83 @@ export class AssetGenerator {
   // ============================================================
   // UI
   // ============================================================
+  // ============================================================
+  // MOB — slime 24x20, 4 frames idle (squash/stretch)
+  // ============================================================
+  private generateMob(): void {
+    const fw = 24;
+    const fh = 20;
+    const cols = 4;
+    const rt = this.scene.add.renderTexture(0, 0, fw * cols, fh).setVisible(false);
+
+    // Cores do slime (verde-azulado, paleta cozy)
+    const SLIME_OUTLINE = 0x1f3a2e;
+    const SLIME_DARK = 0x3d6e5a;
+    const SLIME_MID = 0x5c9c7e;
+    const SLIME_LIGHT = 0x86c5a3;
+    const SLIME_HIGHLIGHT = 0xb3e3c4;
+
+    for (let c = 0; c < cols; c++) {
+      const g = this.scene.add.graphics().setVisible(false);
+
+      // squash/stretch: c=0 normal, c=1 squash (mais wide), c=2 normal, c=3 stretch (mais tall)
+      const wMod = c === 1 ? 2 : c === 3 ? -2 : 0;
+      const hMod = c === 1 ? -2 : c === 3 ? 2 : 0;
+      const w = 18 + wMod;
+      const h = 12 + hMod;
+      const cx = fw / 2;
+      const cy = fh - 4 - h / 2;
+
+      // sombra
+      g.fillStyle(0x000000, 0.25);
+      g.fillEllipse(cx, fh - 2, w + 4, 4);
+
+      // outline (oval expandido)
+      g.fillStyle(SLIME_OUTLINE);
+      g.fillEllipse(cx, cy, w + 2, h + 2);
+      // bottom flat (slime sentado no chão)
+      g.fillRect(cx - (w + 2) / 2, fh - 4, w + 2, 1);
+
+      // base mid
+      g.fillStyle(SLIME_MID);
+      g.fillEllipse(cx, cy, w, h);
+
+      // sombra inferior
+      g.fillStyle(SLIME_DARK);
+      g.fillEllipse(cx, cy + 2, w - 2, h * 0.7);
+
+      // highlight (luz vinda do canto sup-esq)
+      g.fillStyle(SLIME_LIGHT);
+      g.fillEllipse(cx - 2, cy - 2, w * 0.6, h * 0.5);
+      g.fillStyle(SLIME_HIGHLIGHT);
+      g.fillEllipse(cx - 3, cy - 3, w * 0.25, h * 0.25);
+
+      // olhos (2 pretos, com brilho branco)
+      const eyeY = cy - 1;
+      g.fillStyle(0x1a1a1a);
+      g.fillCircle(cx - 3, eyeY, 1.5);
+      g.fillCircle(cx + 3, eyeY, 1.5);
+      g.fillStyle(0xffffff);
+      g.fillRect(cx - 3, eyeY - 1, 1, 1);
+      g.fillRect(cx + 3, eyeY - 1, 1, 1);
+
+      rt.draw(g, c * fw, 0);
+      g.destroy();
+    }
+
+    rt.saveTexture('mob-slime');
+    rt.destroy();
+
+    if (!this.scene.anims.exists('slime-idle')) {
+      this.scene.anims.create({
+        key: 'slime-idle',
+        frames: Array.from({ length: cols }, (_, i) => ({ key: 'mob-slime', frame: i })),
+        frameRate: 6,
+        repeat: -1,
+      });
+    }
+  }
+
   private generateUi(): void {
     // Coração 18x16 (chunky cozy)
     const drawHeart = (g: Phaser.GameObjects.Graphics, fillTop: number, fillBottom: number) => {

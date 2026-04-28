@@ -3,7 +3,10 @@
 > 2D top-down cozy adventure RPG para navegador — Phaser 3 + TypeScript + Vite.
 > Backend Fastify + Postgres + Redis + Argon2id + iron-session.
 
-📖 **Comece pela documentação**: [`DOCS/PROJECT_OVERVIEW.md`](./DOCS/PROJECT_OVERVIEW.md)
+📖 **Comece pela documentação**:
+1. [`DOCS/HANDOFF.md`](./DOCS/HANDOFF.md) — leia primeiro, estado da última sessão e próximo passo
+2. [`DOCS/PROJECT_OVERVIEW.md`](./DOCS/PROJECT_OVERVIEW.md) — visão completa, stack, estrutura
+3. Outros: ARCHITECTURE · ROADMAP · SECURITY · ASSETS · RUNBOOK
 
 ---
 

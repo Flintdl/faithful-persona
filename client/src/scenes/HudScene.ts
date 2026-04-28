@@ -191,8 +191,13 @@ export class HudScene extends Phaser.Scene {
       }
     });
 
-    on('interact:trigger', ({ targetId }) => {
-      this.showDialog(this.dialogFor(targetId));
+    on('interact:trigger', ({ targetId, text }) => {
+      // text vem do mapDef.signText quando emit é da WorldScene; fallback pra dialogFor
+      this.showDialog(text ?? this.dialogFor(targetId));
+    });
+
+    on('map:entered', ({ label }) => {
+      this.showMapBanner(label);
     });
 
     on('state:saved', ({ at }) => {
@@ -208,11 +213,44 @@ export class HudScene extends Phaser.Scene {
   }
 
   private dialogFor(id: string): string {
-    const dialogs: Record<string, string> = {
-      'sign-welcome':
-        'Bem-vindo a Faithful Persona.\n\nUse WASD ou setas pra explorar.\nE pra interagir, ESC pra voltar ao lobby.\nAtravesse a ponte ao sul pra prosseguir.',
-    };
-    return dialogs[id] ?? '...';
+    // Fallback pra signs sem text customizado no mapDef.
+    return id ? `(sem texto: ${id})` : '...';
+  }
+
+  /** Banner curto top-center exibido ao entrar num novo mapa. Fade in/out 2s. */
+  private showMapBanner(label: string): void {
+    const x = GAME_WIDTH / 2;
+    const y = 64;
+
+    const bg = this.add.graphics().setAlpha(0);
+    const labelW = label.length * 14 + 60;
+    bg.fillStyle(PALETTE.uiBg, 0.85);
+    bg.fillRoundedRect(x - labelW / 2, y - 18, labelW, 36, 6);
+    bg.lineStyle(1, PALETTE.uiAccent, 0.9);
+    bg.strokeRoundedRect(x - labelW / 2, y - 18, labelW, 36, 6);
+
+    const text = this.add
+      .text(x, y, label, {
+        fontFamily: 'monospace',
+        fontSize: '20px',
+        color: '#d9b262',
+        fontStyle: 'bold',
+      })
+      .setOrigin(0.5)
+      .setAlpha(0);
+
+    this.tweens.add({
+      targets: [bg, text],
+      alpha: { from: 0, to: 1 },
+      duration: 250,
+      yoyo: true,
+      hold: 1400,
+      ease: 'Sine.easeInOut',
+      onComplete: () => {
+        bg.destroy();
+        text.destroy();
+      },
+    });
   }
 
   private showDialog(text: string): void {
