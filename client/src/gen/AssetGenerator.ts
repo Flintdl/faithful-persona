@@ -441,6 +441,11 @@ export class AssetGenerator {
   // ============================================================
 
   private generatePlayer(): void {
+    // Adventurer pack carrega texturas `player-idle-down` etc. e BootScene.createPlayerAnims
+    // monta as anims. Se já carregou, não fazemos NADA aqui — placeholder procedural era
+    // só pra dev sem assets, hoje nunca executa.
+    if (this.scene.textures.exists('player-idle-down')) return;
+
     const fw = PLAYER_SPRITE_W;
     const fh = PLAYER_SPRITE_H;
     const cols = 4;
@@ -461,7 +466,13 @@ export class AssetGenerator {
     rt.saveTexture('player');
     rt.destroy();
 
-    // Anims (idle = só frame 0, walk = ciclo 4 frames)
+    const playerTex = this.scene.textures.get('player');
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        playerTex.add(r * cols + c, 0, c * fw, r * fh, fw, fh);
+      }
+    }
+
     const anims = this.scene.anims;
     const ensure = (key: string, frames: number[], rate: number, repeat: number) => {
       if (anims.exists(key)) return;
@@ -639,6 +650,10 @@ export class AssetGenerator {
     }
     rt.saveTexture('coin');
     rt.destroy();
+    const coinTex = this.scene.textures.get('coin');
+    for (let c = 0; c < cols; c++) {
+      coinTex.add(c, 0, c * fw, 0, fw, fh);
+    }
     if (!this.scene.anims.exists('coin-spin')) {
       this.scene.anims.create({
         key: 'coin-spin',

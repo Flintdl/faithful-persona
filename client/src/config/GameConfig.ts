@@ -4,20 +4,24 @@ import Phaser from 'phaser';
 export const GAME_WIDTH = 960;
 export const GAME_HEIGHT = 540;
 
-// Tile size dos mapas procedurais (32x32 — padrão "cozy 32" dos packs hand-drawn modernos)
-export const TILE_SIZE = 32;
+// Tile size — Tiny Swords usa 64x64
+export const TILE_SIZE = 64;
 
-// World size (mapa inicial)
-export const MAP_TILES_W = 40; // 40 * 32 = 1280
-export const MAP_TILES_H = 28; // 28 * 32 = 896
+// World size (mapa inicial) — meadow.json é 20x14 = 1280x896 pixels
+export const MAP_TILES_W = 20;
+export const MAP_TILES_H = 14;
 
-// Player (sprite 24x32, body só nos pés)
-export const PLAYER_SPRITE_W = 24;
-export const PLAYER_SPRITE_H = 32;
+// Player — Adventurer pack: frame 96x80 com padding pra animação de attack.
+// O personagem real ocupa ~16x32 no centro do frame. PLAYER_SCALE escala visualmente.
+export const PLAYER_SPRITE_W = 96;
+export const PLAYER_SPRITE_H = 80;
+export const PLAYER_SCALE = 1.1; // 2x nearest-neighbor: nítido em pixel art; personagem efetivo ~32x64
 export const PLAYER_SPEED = 140;
-export const PLAYER_BODY_W = 14;
+// Body em coords do sprite NÃO escalado (Phaser escala depois junto com o sprite).
+// Centrado horizontalmente, ancorado nos pés (perto da base do frame).
+export const PLAYER_BODY_W = 16;
 export const PLAYER_BODY_H = 10;
-export const PLAYER_BODY_OFFSET_Y = 20;
+export const PLAYER_BODY_OFFSET_Y = 60;
 
 // Câmera
 export const CAMERA_LERP = 0.12;

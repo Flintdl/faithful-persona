@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__obsidian__obsidian_list_files_in_vault",
+      "mcp__obsidian__obsidian_append_content",
+      "Bash(docker compose up *)",
+      "Bash(npm run *)",
+      "Bash(npm *)",
+      "Bash(docker exec fp-postgres *)",
+      "Bash(node *)",
+      "Bash(npx tsc *)",
+      "Bash(echo \"exit:$?\")"
+    ]
+  }
+}

@@ -42,12 +42,8 @@ export class PreloadScene extends Phaser.Scene {
     });
     this.load.on('complete', () => label.setText('inicializando save…'));
 
-    // ============================================================
-    // CARREGAMENTO DE ASSETS REAIS (substituir procedurais)
-    // ============================================================
-    // Quando você baixar um asset pack hand-drawn (ver DOCS/ASSETS.md),
-    // descomente e ajuste os paths abaixo. As keys precisam bater com as
-    // que o AssetGenerator usa, então o resto do código não muda.
+    // Tilemap + props reais carregam no BootScene (antes do AssetGenerator).
+    // Aqui ficam apenas placeholders pra futuros loads opcionais (audio, fontes etc.)
     //
     // Exemplo (Sprout Lands by Cup Nooble — 16x16):
     //

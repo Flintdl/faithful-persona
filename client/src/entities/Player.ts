@@ -3,6 +3,7 @@ import {
   PLAYER_BODY_H,
   PLAYER_BODY_OFFSET_Y,
   PLAYER_BODY_W,
+  PLAYER_SCALE,
   PLAYER_SPEED,
   PLAYER_SPRITE_W,
 } from '@/config/GameConfig';
@@ -10,23 +11,39 @@ import type { InputSnapshot, InputSystem } from '@/systems/InputSystem';
 
 export type Facing = 'up' | 'down' | 'left' | 'right';
 
+// Texture inicial. Anims trocam a texture automaticamente conforme o frame
+// (cada anim referencia uma spritesheet diferente do Adventurer pack).
+const INITIAL_TEXTURE = 'player-idle-down';
+
 export class Player extends Phaser.Physics.Arcade.Sprite {
   facing: Facing = 'down';
+  private attacking = false;
 
   declare body: Phaser.Physics.Arcade.Body;
 
   constructor(scene: Phaser.Scene, x: number, y: number) {
-    super(scene, x, y, 'player', 0);
+    super(scene, x, y, INITIAL_TEXTURE, 0);
     scene.add.existing(this);
     scene.physics.add.existing(this);
 
-    // Body só nos pés pra dar sensação de "pisada" e permitir overlap visual com props
+    this.setScale(PLAYER_SCALE);
+
+    // Body em coords do sprite NÃO escalado — Phaser aplica o scale depois.
+    // Centrado horizontalmente, ancorado nos pés.
     this.body.setSize(PLAYER_BODY_W, PLAYER_BODY_H);
     this.body.setOffset((PLAYER_SPRITE_W - PLAYER_BODY_W) / 2, PLAYER_BODY_OFFSET_Y);
     this.body.setCollideWorldBounds(true);
     this.setDepth(10);
 
     this.anims.play('player-idle-down');
+
+    // Quando attack termina, libera movimento
+    this.on(Phaser.Animations.Events.ANIMATION_COMPLETE, (anim: Phaser.Animations.Animation) => {
+      if (anim.key.startsWith('player-attack-')) {
+        this.attacking = false;
+        this.anims.play(`player-idle-${this.facing}`);
+      }
+    });
   }
 
   setFacing(f: Facing): void {
@@ -36,6 +53,19 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
 
   /** Lê input e aplica velocidade. Não move por dt — Phaser physics integra. */
   override update(input: InputSnapshot): void {
+    // Durante attack, freeze de movimento e ignora outros inputs (a anim termina sozinha)
+    if (this.attacking) {
+      this.body.setVelocity(0, 0);
+      return;
+    }
+
+    if (input.attack) {
+      this.attacking = true;
+      this.body.setVelocity(0, 0);
+      this.anims.play(`player-attack-${this.facing}`, true);
+      return;
+    }
+
     let vx = 0;
     let vy = 0;
     if (input.left) vx -= 1;

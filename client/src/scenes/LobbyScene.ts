@@ -108,8 +108,9 @@ export class LobbyScene extends Phaser.Scene {
     platform.lineStyle(2, PALETTE.uiAccent, 0.8);
     platform.strokeEllipse(cx, cy + 78, 120, 16);
 
-    // Avatar grande (player sprite escalado)
-    const avatar = this.add.sprite(cx, cy + 30, 'player', 0).setScale(4); // frame 0 = idle down
+    // Avatar grande — usa idle anim do Adventurer pack pra ter respiração
+    const avatar = this.add.sprite(cx, cy + 30, 'player-idle-down', 0).setScale(2.5);
+    avatar.anims.play('player-idle-down');
     this.tweens.add({
       targets: avatar,
       y: cy + 26,
