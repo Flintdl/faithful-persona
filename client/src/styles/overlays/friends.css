@@ -1,0 +1,193 @@
+/* ============================================================
+   FRIENDS MODAL — lista, pedidos, busca
+   ============================================================ */
+#friends-modal {
+  position: fixed;
+  inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 25;
+  background: rgba(6, 7, 17, 0.7);
+  backdrop-filter: blur(4px);
+}
+#friends-modal.visible { display: flex; }
+.friends-card {
+  width: min(620px, 94vw);
+  max-height: 86vh;
+  background: rgba(12, 13, 26, 0.96);
+  border: 1px solid rgba(212, 160, 23, 0.3);
+  border-radius: 10px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.7);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.friends-card .header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 22px 8px;
+}
+.friends-card .header h3 {
+  margin: 0;
+  font-family: "Scrubland", "Cinzel", serif;
+  font-size: 22px;
+  color: var(--gold-400);
+  letter-spacing: 0.05em;
+}
+.friends-card .close-x {
+  background: transparent;
+  color: var(--muted);
+  border: none;
+  font-size: 22px;
+  cursor: pointer;
+  padding: 0 6px;
+  line-height: 1;
+}
+.friends-card .close-x:hover { color: var(--danger); }
+
+.friends-tabs {
+  display: flex;
+  padding: 0 22px;
+  border-bottom: 1px solid rgba(212, 160, 23, 0.15);
+}
+.friends-tab {
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  font-family: "Kanit", sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  padding: 12px 16px;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  position: relative;
+  transition: all 0.15s;
+}
+.friends-tab:hover { color: var(--gold-300); }
+.friends-tab.active {
+  color: var(--gold-400);
+  border-bottom-color: var(--gold-400);
+}
+.friends-tab .badge {
+  margin-left: 6px;
+  background: var(--blood-500);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 8px;
+  letter-spacing: 0;
+}
+
+.friends-body {
+  padding: 14px 22px 18px;
+  overflow-y: auto;
+  flex: 1;
+}
+.friends-pane { display: none; }
+.friends-pane.active { display: block; }
+
+.friend-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 12px;
+  align-items: center;
+  background: rgba(22, 24, 39, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  border-radius: 6px;
+  padding: 10px 14px;
+  margin-bottom: 6px;
+}
+.friend-row .info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+.friend-row .dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--muted-soft);
+  flex-shrink: 0;
+}
+.friend-row.online .dot {
+  background: var(--success);
+  box-shadow: 0 0 8px var(--success);
+}
+.friend-row .name {
+  font-family: "Kanit", sans-serif;
+  font-size: 13px;
+  color: var(--text);
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.friend-row .meta {
+  font-family: "Kanit", sans-serif;
+  font-size: 10px;
+  color: var(--muted-soft);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  margin-left: 4px;
+}
+.friend-row .actions { display: flex; gap: 6px; }
+
+.friend-btn {
+  background: transparent;
+  color: var(--muted);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 6px 10px;
+  border-radius: 4px;
+  font-family: "Kanit", sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.friend-btn:hover {
+  color: var(--gold-400);
+  border-color: rgba(212, 160, 23, 0.4);
+}
+.friend-btn.accept {
+  color: var(--success);
+  border-color: rgba(134, 181, 106, 0.4);
+}
+.friend-btn.accept:hover {
+  background: rgba(134, 181, 106, 0.1);
+}
+.friend-btn.danger {
+  color: var(--danger);
+  border-color: rgba(232, 90, 90, 0.3);
+}
+.friend-btn.danger:hover {
+  background: rgba(232, 90, 90, 0.1);
+}
+
+/* Search input (aba Adicionar) */
+.friends-search {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.friends-search input {
+  flex: 1;
+  padding: 10px 14px;
+  background: rgba(6, 7, 17, 0.6);
+  border: 1px solid rgba(212, 160, 23, 0.2);
+  border-radius: 6px;
+  color: var(--text);
+  font-family: "Kanit", sans-serif;
+  font-size: 13px;
+  outline: none;
+}
+.friends-search input:focus {
+  border-color: var(--gold-500);
+  box-shadow: 0 0 0 3px rgba(212, 160, 23, 0.12);
+}

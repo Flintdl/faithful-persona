@@ -2,61 +2,534 @@
 <html lang="pt-BR">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
-    <meta name="theme-color" content="#2d3a2d" />
-    <meta name="description" content="Faithful Persona — cozy 2D top-down adventure RPG" />
-
-    <!-- Security: CSP rigorosa em prod (em dev o Vite injeta scripts inline, então afrouxamos) -->
-    <!-- Em produção, a CSP é definida pelo servidor de hospedagem (Cloudflare Pages, etc.) -->
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, user-scalable=no"
+    />
+    <meta name="theme-color" content="#060711" />
+    <meta
+      name="description"
+      content="Faithful Persona — cliente 2D walkable do Silence Project"
+    />
 
     <title>Faithful Persona</title>
 
-    <style>
-      :root {
-        color-scheme: dark;
-      }
-      html, body {
-        margin: 0;
-        padding: 0;
-        height: 100%;
-        overflow: hidden;
-        background: #0b0f0b;
-        font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
-        color: #e8e2d0;
-      }
-      #game {
-        width: 100vw;
-        height: 100vh;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-      }
-      #game canvas {
-        display: block;
-        max-width: 100%;
-        max-height: 100%;
-        image-rendering: pixelated;
-        image-rendering: crisp-edges;
-      }
-      #boot-loader {
-        position: fixed;
-        inset: 0;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        background: #0b0f0b;
-        color: #b9c9a3;
-        font-size: 14px;
-        letter-spacing: 0.1em;
-        z-index: 10;
-        transition: opacity 0.4s ease;
-      }
-      #boot-loader.hidden { opacity: 0; pointer-events: none; }
-    </style>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700;900&display=swap"
+      rel="stylesheet"
+    />
+
+    <!-- Estilos importados via main.ts (src/styles/index.css) — Vite bundla -->
   </head>
   <body>
     <div id="boot-loader">CARREGANDO FAITHFUL PERSONA…</div>
+    <div id="world-bg"></div>
     <div id="game" aria-label="Faithful Persona game canvas"></div>
+
+    <!-- LOGIN -->
+    <div id="login-overlay" role="dialog" aria-labelledby="auth-title">
+      <form id="auth-form" class="auth-card" autocomplete="on">
+        <h1 id="auth-title">FAITHFUL PERSONA</h1>
+        <p class="subtitle" id="auth-subtitle">Entre na sua conta</p>
+
+        <label for="auth-username">Usuário</label>
+        <input
+          id="auth-username"
+          name="username"
+          type="text"
+          autocomplete="username"
+          required
+          minlength="3"
+          maxlength="50"
+        />
+
+        <div id="auth-email-row" style="display: none">
+          <label for="auth-email">E-mail (opcional)</label>
+          <input
+            id="auth-email"
+            name="email"
+            type="email"
+            autocomplete="email"
+          />
+        </div>
+
+        <label for="auth-password">Senha</label>
+        <input
+          id="auth-password"
+          name="password"
+          type="password"
+          autocomplete="current-password"
+          required
+          minlength="6"
+          maxlength="50"
+        />
+
+        <div class="error" id="auth-error" role="alert"></div>
+
+        <div class="actions">
+          <button class="primary" id="auth-submit" type="submit">ENTRAR</button>
+        </div>
+
+        <div class="switch">
+          <span id="auth-switch-prompt">Não tem conta?</span>
+          <a id="auth-switch-link">Cadastrar</a>
+        </div>
+      </form>
+    </div>
+
+    <!-- HUB (Lobby principal) -->
+    <div id="hub-overlay" role="region" aria-label="Hub principal">
+      <div class="hub-topbar">
+        <div class="hub-brand">FAITHFUL PERSONA</div>
+        <div class="hub-user">
+          <div class="hub-user-info" id="hub-user-info" style="cursor: pointer" title="Ver perfil">
+            <span class="hub-username" id="hub-username">Viajante</span>
+            <span class="hub-user-stats"
+              >Nível <span class="gold" id="hub-level">1</span> ·
+              <span class="gold" id="hub-coins">0</span> ◉</span
+            >
+          </div>
+          <button class="hub-mute" id="hub-mute" title="Mutar tudo (M)" aria-label="Mutar tudo">
+            <svg id="hub-mute-icon-on" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M11 5L6 9H2v6h4l5 4V5z" />
+              <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
+              <path d="M19.07 4.93a10 10 0 0 1 0 14.14" />
+            </svg>
+            <svg id="hub-mute-icon-off" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="display:none">
+              <path d="M11 5L6 9H2v6h4l5 4V5z" />
+              <line x1="23" y1="9" x2="17" y2="15" />
+              <line x1="17" y1="9" x2="23" y2="15" />
+            </svg>
+          </button>
+          <button class="hub-logout" id="hub-logout">SAIR</button>
+        </div>
+      </div>
+
+      <button
+        class="hub-side-toggle"
+        id="hub-side-toggle"
+        title="Cenário & música"
+      >
+        <svg
+          width="22"
+          height="22"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.8"
+          stroke-linecap="round"
+        >
+          <line x1="4" y1="6" x2="20" y2="6" />
+          <line x1="4" y1="12" x2="14" y2="12" />
+          <line x1="4" y1="18" x2="18" y2="18" />
+          <circle cx="17" cy="6" r="2" fill="currentColor" />
+          <circle cx="11" cy="12" r="2" fill="currentColor" />
+          <circle cx="15" cy="18" r="2" fill="currentColor" />
+        </svg>
+      </button>
+
+      <div class="hub-side-panel" id="hub-side-panel">
+        <h4>CENÁRIO</h4>
+        <div class="hub-bg-options" id="hub-bg-options">
+          <div class="hub-bg-option active" data-bg="1" style="background-image: url(&quot;/assets/bg/lobby_01.png&quot;)"></div>
+          <div class="hub-bg-option" data-bg="2" style="background-image: url(&quot;/assets/bg/lobby_02.png&quot;)"></div>
+          <div class="hub-bg-option" data-bg="3" style="background-image: url(&quot;/assets/bg/lobby_03.webp&quot;)"></div>
+          <div class="hub-bg-option" data-bg="4" style="background-image: url(&quot;/assets/bg/lobby_04.png&quot;)"></div>
+          <div class="hub-bg-option" data-bg="5" style="background-image: url(&quot;/assets/bg/lobby_05.png&quot;)"></div>
+        </div>
+
+        <div class="section-divider"></div>
+
+        <h4>PERSONAGEM</h4>
+        <div class="hub-skin-options" id="hub-skin-options">
+          <!-- preenchido pelo LobbyScene a partir do registry SKINS -->
+        </div>
+        <div class="hub-skin-label" id="hub-skin-label">
+          Skin: <span class="name" id="hub-skin-name">Aventureiro</span>
+        </div>
+      </div>
+
+      <div class="hub-actions">
+        <div class="hub-action emphasis" id="hub-play">
+          JOGAR
+          <small>enter · escolher sala</small>
+        </div>
+        <div class="hub-action emphasis" id="hub-create-room">
+          CRIAR SALA
+          <small>nova partida</small>
+        </div>
+        <div class="hub-action" id="hub-friends">
+          AMIGOS
+          <span class="hub-action-badge" id="hub-friends-badge" style="display:none">0</span>
+          <small>online · pedidos</small>
+        </div>
+        <div class="hub-action" id="hub-shop">
+          LOJA
+          <small>skins · chapéus · armas</small>
+        </div>
+        <div class="hub-action" id="hub-settings">
+          CONFIGURAÇÕES
+          <small>sons · jogo · vídeo</small>
+        </div>
+      </div>
+    </div>
+
+    <!-- LOBBY (lista de salas) -->
+    <div id="lobby-overlay" role="region" aria-label="Lista de salas">
+      <div class="lobby-header">
+        <div class="brand">FAITHFUL PERSONA · SALAS</div>
+        <div class="user-info">
+          <button class="close-btn" id="lobby-close">← VOLTAR</button>
+          <span class="username" id="lobby-username">?</span>
+        </div>
+      </div>
+      <div class="lobby-toolbar">
+        <h2>SALAS DISPONÍVEIS</h2>
+        <button class="refresh" id="lobby-refresh">↻ Atualizar</button>
+        <button id="lobby-create">+ CRIAR SALA</button>
+      </div>
+      <div id="lobby-rooms"></div>
+      <div class="lobby-status" id="lobby-status">Pronto.</div>
+    </div>
+
+    <!-- ROOM MODAL -->
+    <div id="room-modal" role="dialog" aria-labelledby="room-modal-title">
+      <form id="room-modal-form" class="room-modal-card">
+        <h3 id="room-modal-title">NOVA SALA</h3>
+
+        <label for="room-name">Nome da Sala</label>
+        <input
+          id="room-name"
+          name="name"
+          type="text"
+          required
+          minlength="3"
+          maxlength="40"
+          placeholder="Lobisomens da Vila"
+        />
+
+        <label for="room-max-players">Máximo de Jogadores</label>
+        <select id="room-max-players" name="maxPlayers">
+          <option value="4">4 jogadores</option>
+          <option value="6">6 jogadores</option>
+          <option value="8" selected>8 jogadores</option>
+          <option value="10">10 jogadores</option>
+          <option value="12">12 jogadores</option>
+        </select>
+
+        <label for="room-description">Descrição (opcional)</label>
+        <input
+          id="room-description"
+          name="description"
+          type="text"
+          maxlength="100"
+          placeholder="Sala iniciantes"
+        />
+
+        <div class="checkbox-row">
+          <input id="room-private" name="isPrivate" type="checkbox" />
+          <label
+            for="room-private"
+            style="margin: 0; text-transform: none; letter-spacing: 0; color: inherit; font-size: 12px; font-family: 'Kanit', sans-serif;"
+            >Sala privada</label
+          >
+        </div>
+
+        <div class="error" id="room-modal-error"></div>
+
+        <div class="actions">
+          <button type="button" class="secondary" id="room-modal-cancel">
+            Cancelar
+          </button>
+          <button type="submit" class="primary" id="room-modal-submit">
+            Criar
+          </button>
+        </div>
+      </form>
+    </div>
+
+    <!-- SETTINGS MODAL -->
+    <div id="settings-modal" role="dialog" aria-labelledby="settings-title">
+      <div class="settings-card">
+        <div class="header">
+          <h3 id="settings-title">CONFIGURAÇÕES</h3>
+          <button class="close-x" id="settings-close" aria-label="Fechar">×</button>
+        </div>
+        <div class="settings-tabs" role="tablist">
+          <button class="settings-tab active" data-tab="sounds" role="tab">Sons</button>
+          <button class="settings-tab" data-tab="game" role="tab">Jogo</button>
+          <button class="settings-tab" data-tab="video" role="tab">Vídeo</button>
+        </div>
+
+        <div class="settings-body">
+          <!-- ABA SONS -->
+          <div class="settings-pane active" data-pane="sounds">
+            <div class="settings-row">
+              <div class="label">
+                Música
+                <small>Trilha sonora ambiente</small>
+              </div>
+              <label class="switch-toggle">
+                <input type="checkbox" id="set-music-enabled" />
+                <span class="slider-track"></span>
+              </label>
+            </div>
+            <div class="settings-row">
+              <div class="label">Volume da música</div>
+              <input type="range" id="set-music-volume" min="0" max="100" step="1" />
+            </div>
+            <div class="settings-row">
+              <div class="label">
+                Sons
+                <small>Cliques, alertas, fases</small>
+              </div>
+              <label class="switch-toggle">
+                <input type="checkbox" id="set-sound-enabled" />
+                <span class="slider-track"></span>
+              </label>
+            </div>
+            <div class="settings-row">
+              <div class="label">Volume dos sons</div>
+              <input type="range" id="set-sound-volume" min="0" max="100" step="1" />
+            </div>
+          </div>
+
+          <!-- ABA JOGO -->
+          <div class="settings-pane" data-pane="game">
+            <div class="settings-row">
+              <div class="label">
+                Notificações de jogo
+                <small>Pop-ups de fase, mortes, votação</small>
+              </div>
+              <label class="switch-toggle">
+                <input type="checkbox" id="set-game-notif" />
+                <span class="slider-track"></span>
+              </label>
+            </div>
+            <div class="settings-row">
+              <div class="label">
+                Mostrar timestamps no chat
+                <small>Horário em cada mensagem</small>
+              </div>
+              <label class="switch-toggle">
+                <input type="checkbox" id="set-chat-ts" />
+                <span class="slider-track"></span>
+              </label>
+            </div>
+            <div class="settings-row">
+              <div class="label">
+                Pular voto automaticamente
+                <small>Skip vote se inativo na votação</small>
+              </div>
+              <label class="switch-toggle">
+                <input type="checkbox" id="set-auto-skip" />
+                <span class="slider-track"></span>
+              </label>
+            </div>
+          </div>
+
+          <!-- ABA VÍDEO -->
+          <div class="settings-pane" data-pane="video">
+            <div class="settings-row">
+              <div class="label">
+                Animações
+                <small>Transições e efeitos visuais</small>
+              </div>
+              <label class="switch-toggle">
+                <input type="checkbox" id="set-animations" />
+                <span class="slider-track"></span>
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <div class="footer">
+          <button class="done" id="settings-done">CONCLUÍDO</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- PROFILE MODAL -->
+    <div id="profile-modal" role="dialog" aria-labelledby="profile-title">
+      <div class="profile-card">
+        <div class="header">
+          <h3 id="profile-title">PERFIL</h3>
+          <button class="close-x" id="profile-close" aria-label="Fechar">×</button>
+        </div>
+        <div class="profile-tabs" role="tablist">
+          <button class="profile-tab active" data-tab="stats" role="tab">Estatísticas</button>
+          <button class="profile-tab" data-tab="history" role="tab">Histórico</button>
+          <button class="profile-tab" data-tab="achievements" role="tab">Conquistas</button>
+        </div>
+
+        <div class="profile-body">
+          <!-- ABA STATS -->
+          <div class="profile-pane active" data-pane="stats">
+            <div class="profile-username" id="profile-username">—</div>
+            <div class="profile-userline">
+              Membro desde <span id="profile-since">—</span>
+            </div>
+
+            <div class="stats-grid" id="profile-stats-grid">
+              <div class="stat-cell">
+                <div class="label">Partidas</div>
+                <div class="value" id="stat-games">0</div>
+              </div>
+              <div class="stat-cell">
+                <div class="label">Vitórias</div>
+                <div class="value win" id="stat-wins">0</div>
+              </div>
+              <div class="stat-cell">
+                <div class="label">Derrotas</div>
+                <div class="value loss" id="stat-losses">0</div>
+              </div>
+              <div class="stat-cell">
+                <div class="label">Taxa de vitória</div>
+                <div class="value" id="stat-winrate">—</div>
+              </div>
+              <div class="stat-cell">
+                <div class="label">Sequência atual</div>
+                <div class="value" id="stat-streak">0</div>
+              </div>
+              <div class="stat-cell">
+                <div class="label">Maior sequência</div>
+                <div class="value" id="stat-best-streak">0</div>
+              </div>
+              <div class="stat-cell">
+                <div class="label">Eliminações</div>
+                <div class="value" id="stat-kills">0</div>
+              </div>
+              <div class="stat-cell">
+                <div class="label">Mortes</div>
+                <div class="value" id="stat-deaths">0</div>
+              </div>
+              <div class="stat-cell">
+                <div class="label">Tempo jogado</div>
+                <div class="value" id="stat-playtime">—</div>
+              </div>
+            </div>
+
+            <div class="section-title">Papéis jogados</div>
+            <div class="roles-row" id="stat-roles">
+              <div class="empty-state">Nenhuma partida ainda.</div>
+            </div>
+          </div>
+
+          <!-- ABA HISTORY -->
+          <div class="profile-pane" data-pane="history">
+            <div class="loading-state" id="history-loading">Carregando histórico…</div>
+            <div class="match-list" id="history-list" style="display:none"></div>
+            <div class="empty-state" id="history-empty" style="display:none">
+              Nenhuma partida no histórico ainda.
+            </div>
+          </div>
+
+          <!-- ABA ACHIEVEMENTS -->
+          <div class="profile-pane" data-pane="achievements">
+            <div class="loading-state" id="achievements-loading">Carregando conquistas…</div>
+            <div id="achievements-content" style="display:none">
+              <div class="achievements-summary">
+                <span>Desbloqueadas</span>
+                <span class="progress" id="achievements-progress">0 / 0</span>
+              </div>
+              <div class="achievements-grid" id="achievements-grid"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- FRIENDS MODAL -->
+    <div id="friends-modal" role="dialog" aria-labelledby="friends-title">
+      <div class="friends-card">
+        <div class="header">
+          <h3 id="friends-title">AMIGOS</h3>
+          <button class="close-x" id="friends-close" aria-label="Fechar">×</button>
+        </div>
+        <div class="friends-tabs" role="tablist">
+          <button class="friends-tab active" data-tab="list" role="tab">
+            Lista <span class="badge" id="friends-count" style="display:none">0</span>
+          </button>
+          <button class="friends-tab" data-tab="pending" role="tab">
+            Pedidos <span class="badge" id="friends-pending-count" style="display:none">0</span>
+          </button>
+          <button class="friends-tab" data-tab="search" role="tab">Adicionar</button>
+        </div>
+
+        <div class="friends-body">
+          <!-- ABA LISTA -->
+          <div class="friends-pane active" data-pane="list">
+            <div id="friends-list-empty" class="empty-state" style="display:none">
+              Você ainda não tem amigos. Vá pra aba "Adicionar" pra encontrar alguém.
+            </div>
+            <div id="friends-list"></div>
+          </div>
+
+          <!-- ABA PEDIDOS -->
+          <div class="friends-pane" data-pane="pending">
+            <div id="friends-pending-section">
+              <div class="section-title">Recebidos</div>
+              <div id="friends-pending-list"></div>
+              <div id="friends-pending-empty" class="empty-state" style="display:none">
+                Nenhum pedido recebido.
+              </div>
+            </div>
+            <div id="friends-sent-section">
+              <div class="section-title">Enviados</div>
+              <div id="friends-sent-list"></div>
+              <div id="friends-sent-empty" class="empty-state" style="display:none">
+                Nenhum pedido enviado.
+              </div>
+            </div>
+          </div>
+
+          <!-- ABA BUSCAR -->
+          <div class="friends-pane" data-pane="search">
+            <div class="friends-search">
+              <input
+                id="friends-search-input"
+                type="text"
+                placeholder="Buscar usuário (mín. 2 caracteres)…"
+                autocomplete="off"
+              />
+            </div>
+            <div id="friends-search-results"></div>
+            <div id="friends-search-empty" class="empty-state" style="display:none">
+              Digite pelo menos 2 caracteres pra buscar.
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SHOP MODAL -->
+    <div id="shop-modal" role="dialog" aria-labelledby="shop-title">
+      <div class="shop-card">
+        <div class="header">
+          <h3 id="shop-title">LOJA</h3>
+          <div class="balance">
+            <span class="coins"><span id="shop-balance-coins">0</span> ◉</span>
+            <span class="diamonds"><span id="shop-balance-diamonds">0</span> ◆</span>
+          </div>
+          <button class="close-x" id="shop-close" aria-label="Fechar">×</button>
+        </div>
+        <div class="shop-tabs" role="tablist">
+          <button class="shop-tab active" data-cat="skins" role="tab">Skins</button>
+          <button class="shop-tab" data-cat="hats" role="tab">Chapéus</button>
+          <button class="shop-tab" data-cat="weapons" role="tab">Armas</button>
+          <button class="shop-tab" data-cat="wings" role="tab">Asas</button>
+        </div>
+        <div class="shop-body">
+          <div class="loading-state" id="shop-loading">Carregando itens…</div>
+          <div class="shop-grid" id="shop-grid" style="display:none"></div>
+          <div class="empty-state" id="shop-empty" style="display:none">
+            Nenhum item disponível nesta categoria.
+          </div>
+        </div>
+      </div>
+    </div>
 
     <script type="module" src="/src/main.ts"></script>
   </body>

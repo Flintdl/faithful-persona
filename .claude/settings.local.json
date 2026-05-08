@@ -9,7 +9,28 @@
       "Bash(docker exec fp-postgres *)",
       "Bash(node *)",
       "Bash(npx tsc *)",
-      "Bash(echo \"exit:$?\")"
+      "Bash(echo \"exit:$?\")",
+      "mcp__obsidian__obsidian_list_files_in_dir",
+      "mcp__obsidian__obsidian_batch_get_file_contents",
+      "mcp__obsidian__obsidian_get_file_contents",
+      "mcp__obsidian__obsidian_delete_file",
+      "Bash(rm -rf e:/Github/faithful-persona/client/src/entities)",
+      "Bash(rm -rf e:/Github/faithful-persona/client/src/services)",
+      "Bash(rm -rf e:/Github/faithful-persona/client/src/systems)",
+      "Bash(rm -rf e:/Github/faithful-persona/client/src/gen)",
+      "Bash(rm -f e:/Github/faithful-persona/client/src/scenes/WorldScene.ts)",
+      "Bash(npx vite *)",
+      "mcp__obsidian__obsidian_patch_content",
+      "Read(//e/Github/inquisitionFrontWeb/Silence Project/src/data/**)",
+      "Read(//e/Github/inquisitionFrontWeb/Silence Project/src/components/Lobby/**)",
+      "Read(//e/Github/inquisitionFrontWeb/Silence Project/src/components/Lobby/Middle/**)",
+      "Bash(cp \"e:/Github/inquisitionFrontWeb/Silence Project/public/images/lobby_backgrounds/background_initial_page_option_01.png\" e:/Github/faithful-persona/client/public/assets/bg/lobby_01.png)",
+      "Bash(cp \"e:/Github/inquisitionFrontWeb/Silence Project/public/images/lobby_backgrounds/background_initial_page_option_02.png\" e:/Github/faithful-persona/client/public/assets/bg/lobby_02.png)",
+      "Bash(cp \"e:/Github/inquisitionFrontWeb/Silence Project/public/images/lobby_backgrounds/background_initial_page_option_04.png\" e:/Github/faithful-persona/client/public/assets/bg/lobby_04.png)",
+      "Bash(cp \"e:/Github/inquisitionFrontWeb/Silence Project/public/images/lobby_backgrounds/background_initial_page_option_05.png\" e:/Github/faithful-persona/client/public/assets/bg/lobby_05.png)",
+      "Bash(cp \"e:/Github/inquisitionFrontWeb/Silence Project/public/images/lobby_backgrounds/landscape_home.webp\" e:/Github/faithful-persona/client/public/assets/bg/lobby_03.webp)",
+      "Bash(cp 'e:/Github/inquisitionFrontWeb/Silence Project/public/sounds/themes/Adventure.mp3' 'e:/Github/inquisitionFrontWeb/Silence Project/public/sounds/themes/Chase.mp3' 'e:/Github/inquisitionFrontWeb/Silence Project/public/sounds/themes/ForestWalk.mp3' 'e:/Github/inquisitionFrontWeb/Silence Project/public/sounds/themes/The_Epic.mp3' e:/Github/faithful-persona/client/public/assets/audio/music/)",
+      "Bash(cp 'e:/Github/inquisitionFrontWeb/Silence Project/public/sounds/click-menu.mp3' 'e:/Github/inquisitionFrontWeb/Silence Project/public/sounds/menu-selection.mp3' 'e:/Github/inquisitionFrontWeb/Silence Project/public/sounds/slide.mp3' 'e:/Github/inquisitionFrontWeb/Silence Project/public/sounds/you_turn.mp3' 'e:/Github/inquisitionFrontWeb/Silence Project/public/sounds/clock-ticking-time.mp3' e:/Github/faithful-persona/client/public/assets/audio/sfx/)"
     ]
   }
 }

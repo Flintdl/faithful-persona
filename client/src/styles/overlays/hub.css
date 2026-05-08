@@ -1,0 +1,364 @@
+/* ============================================================
+   HUB OVERLAY — Lobby principal (topbar + character + actions + side)
+   ============================================================ */
+/* Hub overlay: bg vem de #world-bg; aqui só UI */
+#hub-overlay {
+  position: fixed;
+  inset: 0;
+  display: none;
+  z-index: 12;
+  pointer-events: none;
+}
+#hub-overlay.visible {
+  display: block;
+}
+#hub-overlay > * {
+  pointer-events: auto;
+}
+
+/* Top bar — brand + user */
+.hub-topbar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 28px;
+  background: linear-gradient(
+    180deg,
+    rgba(6, 7, 17, 0.85),
+    rgba(6, 7, 17, 0)
+  );
+}
+.hub-brand {
+  font-family: "Scrubland", "Cinzel", serif;
+  font-size: 24px;
+  color: var(--gold-400);
+  letter-spacing: 0.06em;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.8);
+}
+.hub-user {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.hub-user-info {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  font-family: "Kanit", sans-serif;
+  line-height: 1.15;
+}
+.hub-username {
+  font-family: "Scrubland", "Cinzel", serif;
+  font-size: 18px;
+  color: var(--gold-300);
+  letter-spacing: 0.04em;
+}
+.hub-user-stats {
+  font-size: 11px;
+  color: var(--muted);
+  letter-spacing: 0.06em;
+}
+.hub-user-stats .gold {
+  color: var(--gold-400);
+  font-weight: 700;
+}
+.hub-logout {
+  background: transparent;
+  color: var(--muted);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 7px 14px;
+  border-radius: 4px;
+  font-family: "Kanit", sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.hub-logout:hover {
+  color: var(--danger);
+  border-color: rgba(232, 90, 90, 0.4);
+  background: rgba(232, 90, 90, 0.06);
+}
+
+/* Quick-mute (ícone speaker no topbar) */
+.hub-mute {
+  background: transparent;
+  color: var(--muted);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 6px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.15s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 0;
+}
+.hub-mute:hover {
+  color: var(--gold-400);
+  border-color: rgba(212, 160, 23, 0.4);
+}
+.hub-mute.muted {
+  color: var(--danger);
+  border-color: rgba(232, 90, 90, 0.3);
+}
+
+/* Side panel toggle (canto inferior esquerdo) — controla cenário/skin */
+.hub-side-toggle {
+  position: absolute;
+  bottom: 28px;
+  left: 28px;
+  background: rgba(6, 7, 17, 0.7);
+  border: 1px solid rgba(212, 160, 23, 0.2);
+  border-radius: 8px;
+  padding: 10px;
+  cursor: pointer;
+  color: var(--muted);
+  backdrop-filter: blur(8px);
+  transition: all 0.15s;
+}
+.hub-side-toggle:hover,
+.hub-side-toggle.active {
+  color: var(--gold-400);
+  border-color: rgba(212, 160, 23, 0.5);
+  background: rgba(168, 125, 16, 0.15);
+}
+
+.hub-side-panel {
+  position: absolute;
+  bottom: 84px;
+  left: 28px;
+  width: 280px;
+  background: rgba(6, 7, 17, 0.85);
+  border: 1px solid rgba(212, 160, 23, 0.2);
+  border-radius: 8px;
+  padding: 16px;
+  backdrop-filter: blur(12px);
+  display: none;
+}
+.hub-side-panel.open {
+  display: block;
+}
+.hub-side-panel h4 {
+  font-family: "Scrubland", "Cinzel", serif;
+  margin: 0 0 12px;
+  font-size: 16px;
+  color: var(--gold-400);
+  letter-spacing: 0.06em;
+}
+.hub-side-panel .section-divider {
+  height: 1px;
+  background: rgba(212, 160, 23, 0.15);
+  margin: 16px 0 12px;
+}
+
+/* Cenário (bg) picker */
+.hub-bg-options {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 6px;
+}
+.hub-bg-option {
+  aspect-ratio: 1;
+  border: 2px solid rgba(255, 255, 255, 0.08);
+  border-radius: 4px;
+  background-size: cover;
+  background-position: center;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.hub-bg-option:hover {
+  border-color: var(--gold-500);
+  transform: scale(1.05);
+}
+.hub-bg-option.active {
+  border-color: var(--gold-400);
+  box-shadow: 0 0 0 2px rgba(212, 160, 23, 0.4);
+}
+
+/* Skin picker (cores do personagem) */
+.hub-skin-options {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+.hub-skin-option {
+  aspect-ratio: 1;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.12);
+  cursor: pointer;
+  transition: all 0.15s;
+  position: relative;
+  box-shadow: inset 0 0 0 2px rgba(0, 0, 0, 0.4);
+}
+.hub-skin-option:hover {
+  transform: scale(1.1);
+  border-color: var(--gold-400);
+}
+.hub-skin-option.active {
+  border-color: var(--gold-400);
+  box-shadow:
+    inset 0 0 0 2px rgba(0, 0, 0, 0.4),
+    0 0 0 2px rgba(212, 160, 23, 0.45);
+}
+
+/* Skin bloqueada — overlay com cadeado, click abre Shop */
+.hub-skin-option.locked {
+  filter: grayscale(0.7) brightness(0.55);
+  cursor: pointer;
+}
+.hub-skin-option.locked::after {
+  content: "🔒";
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.85);
+  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.8));
+  pointer-events: none;
+}
+.hub-skin-option.locked:hover {
+  filter: grayscale(0.4) brightness(0.75);
+  border-color: var(--gold-500);
+}
+.hub-skin-label {
+  margin-top: 8px;
+  font-family: "Kanit", sans-serif;
+  font-size: 11px;
+  color: var(--muted);
+  text-align: center;
+  letter-spacing: 0.06em;
+}
+.hub-skin-label .name {
+  color: var(--gold-300);
+  font-weight: 700;
+}
+
+/* Menu de ações canto inferior direito */
+.hub-actions {
+  position: absolute;
+  bottom: 28px;
+  right: 28px;
+  background: rgba(6, 7, 17, 0.78);
+  border: 1px solid rgba(212, 160, 23, 0.2);
+  border-radius: 12px;
+  padding: 14px;
+  backdrop-filter: blur(12px);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 220px;
+}
+.hub-action {
+  font-family: "Scrubland", "Cinzel", serif;
+  font-size: 22px;
+  letter-spacing: 0.05em;
+  text-align: center;
+  padding: 10px 18px;
+  background: rgba(22, 24, 39, 0.6);
+  border: 1px solid rgba(168, 125, 16, 0.18);
+  border-radius: 6px;
+  color: var(--muted);
+  cursor: pointer;
+  transition: all 0.15s;
+  position: relative;
+}
+.hub-action:hover {
+  background: rgba(22, 24, 39, 0.85);
+  border-color: rgba(212, 160, 23, 0.4);
+  color: var(--gold-400);
+  text-shadow: 0 0 12px rgba(212, 160, 23, 0.3);
+}
+.hub-action.emphasis {
+  color: var(--gold-400);
+}
+.hub-action.emphasis:hover {
+  color: var(--gold-300);
+}
+.hub-action.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.hub-action.disabled:hover {
+  background: rgba(22, 24, 39, 0.6);
+  border-color: rgba(168, 125, 16, 0.18);
+  color: var(--muted);
+  text-shadow: none;
+}
+.hub-action small {
+  display: block;
+  font-family: "Kanit", sans-serif;
+  font-size: 9px;
+  color: var(--muted-soft);
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  margin-top: 2px;
+  font-weight: 500;
+}
+
+/* Badge no botão (ex: pedidos pendentes em AMIGOS) */
+.hub-action-badge {
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  background: var(--blood-500);
+  color: #fff;
+  font-family: "Kanit", sans-serif;
+  font-size: 10px;
+  font-weight: 700;
+  border-radius: 9px;
+  line-height: 18px;
+  text-align: center;
+  letter-spacing: 0;
+  box-shadow: 0 0 0 2px rgba(6, 7, 17, 0.85);
+}
+
+/* Toast (notificações flutuantes do hub) */
+.hub-toast {
+  position: fixed;
+  bottom: 120px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(6, 7, 17, 0.92);
+  border: 1px solid rgba(212, 160, 23, 0.4);
+  border-radius: 6px;
+  padding: 12px 20px;
+  font-family: "Kanit", sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--gold-300);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.7);
+  z-index: 30;
+  animation:
+    toastIn 0.2s ease,
+    toastOut 0.25s ease 2s forwards;
+  pointer-events: none;
+}
+@keyframes toastIn {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 8px);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}
+@keyframes toastOut {
+  to {
+    opacity: 0;
+    transform: translate(-50%, 8px);
+  }
+}

@@ -1,0 +1,177 @@
+/* ============================================================
+   SHOP MODAL — categorias + grid de itens + saldo
+   ============================================================ */
+#shop-modal {
+  position: fixed;
+  inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 25;
+  background: rgba(6, 7, 17, 0.7);
+  backdrop-filter: blur(4px);
+}
+#shop-modal.visible { display: flex; }
+.shop-card {
+  width: min(820px, 96vw);
+  max-height: 88vh;
+  background: rgba(12, 13, 26, 0.96);
+  border: 1px solid rgba(212, 160, 23, 0.3);
+  border-radius: 10px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.7);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.shop-card .header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 22px 8px;
+  gap: 16px;
+}
+.shop-card .header h3 {
+  margin: 0;
+  font-family: "Scrubland", "Cinzel", serif;
+  font-size: 22px;
+  color: var(--gold-400);
+  letter-spacing: 0.05em;
+}
+.shop-card .balance {
+  display: flex;
+  gap: 12px;
+  font-family: "Kanit", sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+}
+.shop-card .balance .coins { color: var(--gold-400); }
+.shop-card .balance .diamonds { color: #6da8ff; }
+.shop-card .close-x {
+  background: transparent;
+  color: var(--muted);
+  border: none;
+  font-size: 22px;
+  cursor: pointer;
+  padding: 0 6px;
+  line-height: 1;
+}
+.shop-card .close-x:hover { color: var(--danger); }
+
+.shop-tabs {
+  display: flex;
+  padding: 0 22px;
+  border-bottom: 1px solid rgba(212, 160, 23, 0.15);
+  flex-wrap: wrap;
+}
+.shop-tab {
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  font-family: "Kanit", sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  padding: 12px 16px;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: all 0.15s;
+}
+.shop-tab:hover { color: var(--gold-300); }
+.shop-tab.active {
+  color: var(--gold-400);
+  border-bottom-color: var(--gold-400);
+}
+.shop-body {
+  padding: 18px 22px;
+  overflow-y: auto;
+  flex: 1;
+}
+.shop-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+  gap: 10px;
+}
+
+.shop-card-item {
+  background: rgba(22, 24, 39, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-top: 3px solid var(--muted-soft);
+  border-radius: 6px;
+  padding: 14px 12px 10px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.shop-card-item.rarity-comum { border-top-color: #8a8aa6; }
+.shop-card-item.rarity-raro { border-top-color: #6da8ff; }
+.shop-card-item.rarity-épico { border-top-color: #b066d4; }
+.shop-card-item.rarity-lendário {
+  border-top-color: var(--gold-400);
+  background: linear-gradient(180deg, rgba(212, 160, 23, 0.12), rgba(22, 24, 39, 0.8));
+}
+.shop-card-item .emoji {
+  font-size: 38px;
+  line-height: 1;
+}
+.shop-card-item .name {
+  font-family: "Scrubland", "Cinzel", serif;
+  font-size: 14px;
+  color: var(--gold-300);
+  letter-spacing: 0.04em;
+}
+.shop-card-item .desc {
+  font-family: "Kanit", sans-serif;
+  font-size: 11px;
+  color: var(--muted);
+  flex: 1;
+}
+.shop-card-item .rarity-tag {
+  font-family: "Kanit", sans-serif;
+  font-size: 9px;
+  color: var(--muted-soft);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+}
+.shop-card-item.rarity-lendário .rarity-tag { color: var(--gold-400); }
+.shop-card-item.rarity-épico .rarity-tag { color: #b066d4; }
+.shop-card-item.rarity-raro .rarity-tag { color: #6da8ff; }
+
+.shop-card-item .buy-btn {
+  margin-top: 4px;
+  background: linear-gradient(135deg, var(--gold-400), var(--gold-500) 80%);
+  color: var(--midnight-950);
+  border: none;
+  padding: 8px;
+  border-radius: 4px;
+  font-family: "Scrubland", "Cinzel", serif;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+  transition: filter 0.15s;
+}
+.shop-card-item .buy-btn.diamond {
+  background: linear-gradient(135deg, #6da8ff, #4a7cd4 80%);
+  color: #fff;
+}
+.shop-card-item .buy-btn:hover:not(:disabled) {
+  filter: brightness(1.1);
+}
+.shop-card-item .buy-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.shop-card-item .owned-badge {
+  background: rgba(134, 181, 106, 0.18);
+  color: var(--success);
+  border: 1px solid rgba(134, 181, 106, 0.4);
+  padding: 8px;
+  border-radius: 4px;
+  font-family: "Kanit", sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}

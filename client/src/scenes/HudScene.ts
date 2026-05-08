@@ -1,282 +1,655 @@
 import Phaser from 'phaser';
 import { GAME_HEIGHT, GAME_WIDTH, PALETTE } from '@/config/GameConfig';
-import { saveSystem } from '@/systems/SaveSystem';
-import { on } from '@/utils/EventBus';
+import type {
+  MafiaAbilityResultEvent,
+  MafiaNightResultsEvent,
+  MafiaPhase,
+  MafiaPhaseChangedEvent,
+  MafiaRoleAssignedEvent,
+  MafiaTimerUpdateEvent,
+  MafiaVoteReceivedEvent,
+  MafiaVoteResultEvent,
+  RoomPlayer,
+  RoomSummary,
+} from '@/events/socket.events';
+import { socketService } from '@/services/SocketService';
+import { soundManager } from '@/services/SoundManager';
+import { log } from '@/utils/Logger';
+
+type HudInitData = { room: RoomSummary };
+
+const PHASE_LABELS: Record<MafiaPhase, string> = {
+  LOBBY: 'Aguardando',
+  ROLE_ASSIGNMENT: 'Distribuindo Papéis',
+  DAY_DISCUSSION: 'Discussão Diurna',
+  VOTING: 'Votação',
+  NIGHT: 'Noite',
+  END: 'Fim',
+};
+
+const PHASE_COLORS: Record<MafiaPhase, string> = {
+  LOBBY: '#8a8aa6',
+  ROLE_ASSIGNMENT: '#d4a017',
+  DAY_DISCUSSION: '#f3c54a',
+  VOTING: '#e85a5a',
+  NIGHT: '#5a72d4',
+  END: '#8a8aa6',
+};
+
+const PHASE_TRANSITION_TITLES: Record<MafiaPhase, string> = {
+  LOBBY: 'AGUARDANDO',
+  ROLE_ASSIGNMENT: 'DISTRIBUINDO PAPÉIS',
+  DAY_DISCUSSION: 'O DIA AMANHECE',
+  VOTING: 'A VOTAÇÃO COMEÇA',
+  NIGHT: 'A NOITE CAI',
+  END: 'FIM DE JOGO',
+};
+
+const PHASE_TRANSITION_SUBTITLES: Record<MafiaPhase, string> = {
+  LOBBY: '',
+  ROLE_ASSIGNMENT: 'Os destinos são revelados',
+  DAY_DISCUSSION: 'Discutam quem suspeitam',
+  VOTING: 'Escolham quem eliminar',
+  NIGHT: 'Lobos caçam nas sombras',
+  END: '',
+};
+
+const TEAM_COLORS: Record<string, number> = {
+  VILLAGE: 0x86b56a,
+  WEREWOLF: 0xc53030,
+  SOLO: 0x9c7211,
+  NEUTRAL: 0x8a8aa6,
+};
+
+const hexStrToNumber = (hex: string): number => Number.parseInt(hex.replace('#', ''), 16);
 
 /**
- * HudScene — sobreposto à WorldScene. Renderiza vida, moedas, prompts e mensagens.
- * Roda em paralelo (`scene.launch`).
+ * HudScene — overlay paralelo ao WorldScene (lançado via scene.launch).
+ *
+ * Mostra timer de fase, label da fase, dia, role card e lista de jogadores vivos.
+ * Recebe eventos `mafia:*` direto do socket; WorldScene cuida do teleport por fase.
  */
 export class HudScene extends Phaser.Scene {
-  private hearts: Phaser.GameObjects.Image[] = [];
-  private coinText!: Phaser.GameObjects.Text;
-  private interactPrompt!: Phaser.GameObjects.Container;
-  private dialog!: Phaser.GameObjects.Container;
-  private saveIndicator!: Phaser.GameObjects.Text;
+  private room!: RoomSummary;
+  private alive = new Set<string>();
+  private players = new Map<string, RoomPlayer>();
+
+  private phaseLabel!: Phaser.GameObjects.Text;
+  private dayLabel!: Phaser.GameObjects.Text;
+  private timerText!: Phaser.GameObjects.Text;
+  private timerBar!: Phaser.GameObjects.Graphics;
+  private roleNameText!: Phaser.GameObjects.Text;
+  private roleTeamText!: Phaser.GameObjects.Text;
+  private roleDescText!: Phaser.GameObjects.Text;
+  private playerListText!: Phaser.GameObjects.Text;
+
+  private currentPhase: MafiaPhase = 'LOBBY';
+  private phaseDuration = 1;
+  private timeLeft = 0;
+  private myRole?: MafiaRoleAssignedEvent;
+
+  private onPhaseChanged = (data: MafiaPhaseChangedEvent) => this.applyPhaseChange(data);
+  private onTimerUpdate = (data: MafiaTimerUpdateEvent) => this.applyTimerUpdate(data);
+  private onRoleAssigned = (data: MafiaRoleAssignedEvent) => this.applyRoleAssigned(data);
+  private onPlayerDied = (data: { playerId: string }) => this.applyDeath(data.playerId);
+  private onVoteReceived = (data: MafiaVoteReceivedEvent) => this.applyVoteReceived(data);
+  private onVoteResult = (data: MafiaVoteResultEvent) => this.applyVoteResult(data);
+  private onAbilityResult = (data: MafiaAbilityResultEvent) => this.applyAbilityResult(data);
+  private onNightResults = (data: MafiaNightResultsEvent) => this.applyNightResults(data);
+
+  /** Map<targetId, count> dos votos correntes (limpa em phase_changed). */
+  private voteCounts = new Map<string, number>();
 
   constructor() {
-    super({ key: 'Hud', active: false });
+    super('Hud');
+  }
+
+  init(data: HudInitData): void {
+    this.room = data.room;
+    for (const p of this.room.players) {
+      this.players.set(p.userId, p);
+      this.alive.add(p.userId);
+    }
   }
 
   create(): void {
-    this.cameras.main.setBackgroundColor('rgba(0,0,0,0)');
+    this.drawTopBar();
+    this.drawRoleCard();
+    this.drawPlayerList();
 
-    this.buildHearts();
-    this.buildCoins();
-    this.buildInteractPrompt();
-    this.buildDialog();
-    this.buildSaveIndicator();
-    this.wireEvents();
+    this.wireSocket();
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.unwireSocket());
+
+    log.info('HudScene ready', { players: this.players.size });
   }
 
-  // ===== Vida (canto inferior esquerdo) =====
-  private buildHearts(): void {
-    const state = saveSystem.get();
-    const max = Math.ceil(state.maxHp / 2); // cada coração = 2 hp
-    const startX = 16;
-    const baseY = GAME_HEIGHT - 22;
-
-    // background frame
-    const frame = this.add.graphics();
-    frame.fillStyle(PALETTE.uiBg, 0.7);
-    frame.fillRoundedRect(8, GAME_HEIGHT - 32, 28 + max * 18, 22, 4);
-    frame.lineStyle(1, PALETTE.uiBgSoft, 1);
-    frame.strokeRoundedRect(8, GAME_HEIGHT - 32, 28 + max * 18, 22, 4);
-
-    for (let i = 0; i < max; i++) {
-      const h = this.add.image(startX + i * 18, baseY, 'ui-heart-full').setOrigin(0, 0.5).setScale(1.4);
-      this.hearts.push(h);
-    }
-    this.refreshHearts(state.hp, state.maxHp);
-  }
-
-  private refreshHearts(hp: number, maxHp: number): void {
-    const max = Math.ceil(maxHp / 2);
-    for (let i = 0; i < this.hearts.length; i++) {
-      const heart = this.hearts[i];
-      if (!heart) continue;
-      const filled = (i + 1) * 2 <= hp;
-      const halved = !filled && i * 2 + 1 === hp;
-      heart.setTexture(filled ? 'ui-heart-full' : halved ? 'ui-heart-half' : 'ui-heart-empty');
-      heart.setVisible(i < max);
+  override update(): void {
+    if (this.currentPhase === 'LOBBY' || this.currentPhase === 'END') return;
+    // Timer client-side suave (server tick eventual realinha em applyTimerUpdate)
+    if (this.timeLeft > 0) {
+      this.timeLeft = Math.max(0, this.timeLeft - this.game.loop.delta / 1000);
+      this.renderTimer();
     }
   }
 
-  // ===== Moedas (canto superior direito) =====
-  private buildCoins(): void {
-    const state = saveSystem.get();
-    const x = GAME_WIDTH - 16;
-    const y = 18;
+  // ============== TOP BAR (timer + phase) ==============
+  private drawTopBar(): void {
+    const g = this.add.graphics();
+    g.fillStyle(0x000000, 0.55);
+    g.fillRect(0, 0, GAME_WIDTH, 56);
+    g.lineStyle(1, PALETTE.goldDark, 0.4);
+    g.lineBetween(0, 56, GAME_WIDTH, 56);
 
-    const frame = this.add.graphics();
-    frame.fillStyle(PALETTE.uiBg, 0.7);
-    frame.fillRoundedRect(GAME_WIDTH - 96, 8, 88, 22, 4);
-    frame.lineStyle(1, PALETTE.uiBgSoft, 1);
-    frame.strokeRoundedRect(GAME_WIDTH - 96, 8, 88, 22, 4);
-
-    this.add.sprite(GAME_WIDTH - 84, y, 'coin', 0).setOrigin(0, 0.5).setScale(1.6).play('coin-spin');
-
-    this.coinText = this.add
-      .text(x, y, String(state.coins), {
+    this.phaseLabel = this.add
+      .text(20, 14, '—', {
         fontFamily: 'monospace',
         fontSize: '14px',
-        color: '#f3c54a',
+        color: '#d4a017',
         fontStyle: 'bold',
       })
-      .setOrigin(1, 0.5);
-  }
+      .setOrigin(0, 0);
 
-  // ===== Prompt "[E] interagir" =====
-  private buildInteractPrompt(): void {
-    const c = this.add.container(GAME_WIDTH / 2, GAME_HEIGHT - 78).setVisible(false);
-    const bg = this.add.graphics();
-    bg.fillStyle(PALETTE.uiBg, 0.85);
-    bg.fillRoundedRect(-70, -12, 140, 24, 4);
-    bg.lineStyle(1, PALETTE.uiAccent, 0.8);
-    bg.strokeRoundedRect(-70, -12, 140, 24, 4);
-
-    const txt = this.add
-      .text(0, 0, '[E] interagir', {
+    this.dayLabel = this.add
+      .text(20, 34, '', {
         fontFamily: 'monospace',
         fontSize: '11px',
+        color: '#8a8aa6',
+      })
+      .setOrigin(0, 0);
+
+    this.timerText = this.add
+      .text(GAME_WIDTH / 2, 18, '--', {
+        fontFamily: 'monospace',
+        fontSize: '22px',
+        color: '#e8e2d0',
+        fontStyle: 'bold',
+      })
+      .setOrigin(0.5, 0);
+
+    this.timerBar = this.add.graphics();
+    this.renderTimer();
+  }
+
+  private renderTimer(): void {
+    const cx = GAME_WIDTH / 2;
+    const w = 160;
+    const h = 4;
+    const x = cx - w / 2;
+    const y = 48;
+    const ratio = this.phaseDuration > 0 ? Math.max(0, this.timeLeft / this.phaseDuration) : 0;
+
+    this.timerBar.clear();
+    this.timerBar.fillStyle(0x14141c, 0.8);
+    this.timerBar.fillRect(x, y, w, h);
+    const colorHex = PHASE_COLORS[this.currentPhase];
+    this.timerBar.fillStyle(Number.parseInt(colorHex.replace('#', ''), 16), 1);
+    this.timerBar.fillRect(x, y, w * ratio, h);
+
+    this.timerText.setText(this.timeLeft > 0 ? Math.ceil(this.timeLeft).toString() : '--');
+    this.timerText.setColor(colorHex);
+  }
+
+  // ============== ROLE CARD (bottom-left) ==============
+  private drawRoleCard(): void {
+    const x = 12;
+    const y = GAME_HEIGHT - 96;
+    const w = 220;
+    const h = 84;
+
+    const g = this.add.graphics();
+    g.fillStyle(0x000000, 0.6);
+    g.fillRoundedRect(x, y, w, h, 6);
+    g.lineStyle(1, PALETTE.goldDark, 0.5);
+    g.strokeRoundedRect(x, y, w, h, 6);
+
+    this.add
+      .text(x + 12, y + 8, 'SEU PAPEL', {
+        fontFamily: 'monospace',
+        fontSize: '9px',
+        color: '#8a8aa6',
+        fontStyle: 'bold',
+      })
+      .setOrigin(0, 0);
+
+    this.roleNameText = this.add
+      .text(x + 12, y + 22, 'aguardando…', {
+        fontFamily: 'monospace',
+        fontSize: '14px',
+        color: '#d4a017',
+        fontStyle: 'bold',
+      })
+      .setOrigin(0, 0);
+
+    this.roleTeamText = this.add
+      .text(x + 12, y + 42, '', {
+        fontFamily: 'monospace',
+        fontSize: '10px',
+        color: '#8a8aa6',
+      })
+      .setOrigin(0, 0);
+
+    this.roleDescText = this.add
+      .text(x + 12, y + 58, '', {
+        fontFamily: 'monospace',
+        fontSize: '10px',
+        color: '#e8e2d0',
+        wordWrap: { width: w - 24 },
+      })
+      .setOrigin(0, 0);
+  }
+
+  // ============== PLAYER LIST (right side) ==============
+  private drawPlayerList(): void {
+    const x = GAME_WIDTH - 162;
+    const y = 70;
+    const w = 150;
+    const h = GAME_HEIGHT - 90;
+
+    const g = this.add.graphics();
+    g.fillStyle(0x000000, 0.5);
+    g.fillRoundedRect(x, y, w, h, 6);
+    g.lineStyle(1, PALETTE.goldDark, 0.3);
+    g.strokeRoundedRect(x, y, w, h, 6);
+
+    this.add
+      .text(x + 10, y + 8, 'JOGADORES', {
+        fontFamily: 'monospace',
+        fontSize: '9px',
+        color: '#d4a017',
+        fontStyle: 'bold',
+      })
+      .setOrigin(0, 0);
+
+    this.playerListText = this.add
+      .text(x + 10, y + 26, '', {
+        fontFamily: 'monospace',
+        fontSize: '10px',
+        color: '#e8e2d0',
+        lineSpacing: 5,
+        wordWrap: { width: w - 20 },
+      })
+      .setOrigin(0, 0);
+
+    this.refreshPlayerList();
+  }
+
+  private refreshPlayerList(): void {
+    const lines: string[] = [];
+    for (const [, p] of this.players) {
+      const dead = !this.alive.has(p.userId);
+      const prefix = dead ? '✕' : '●';
+      const votes = this.voteCounts.get(p.userId) ?? 0;
+      const voteTag = votes > 0 ? ` [${votes}v]` : '';
+      const username = dead ? `${p.username} (morto)` : `${p.username}${voteTag}`;
+      lines.push(`${prefix} ${username}`);
+    }
+    this.playerListText.setText(lines.join('\n'));
+  }
+
+  // ============== APPLIERS ==============
+  private applyPhaseChange(data: MafiaPhaseChangedEvent): void {
+    this.currentPhase = data.phase;
+    this.phaseDuration = data.duration || 1;
+    this.timeLeft = data.duration || 0;
+    this.phaseLabel.setText(PHASE_LABELS[data.phase] ?? data.phase);
+    this.phaseLabel.setColor(PHASE_COLORS[data.phase]);
+    this.dayLabel.setText(`Dia ${data.dayNumber}`);
+    this.renderTimer();
+    this.playPhaseTransition(data.phase, data.dayNumber);
+    // SFX de "sua vez" ao entrar em fase de ação (VOTING ou NIGHT)
+    if (data.phase === 'VOTING' || data.phase === 'NIGHT') {
+      soundManager.playSfx('turn');
+    }
+    // Reset vote counts ao entrar em VOTING (ou ao sair)
+    if (data.phase === 'VOTING' || data.phase === 'NIGHT' || data.phase === 'DAY_DISCUSSION') {
+      this.voteCounts.clear();
+      this.refreshPlayerList();
+    }
+  }
+
+  private applyTimerUpdate(data: MafiaTimerUpdateEvent): void {
+    const t = data.timeLeft ?? data.time ?? data.remainingTime;
+    if (t !== undefined) {
+      // Tick warning nos últimos 10s da fase (tensão final)
+      if (
+        (this.currentPhase === 'VOTING' || this.currentPhase === 'DAY_DISCUSSION') &&
+        t <= 10 &&
+        t > 0 &&
+        Math.floor(this.timeLeft) !== Math.floor(t)
+      ) {
+        soundManager.playSfx('tick', 0.4);
+      }
+      this.timeLeft = t;
+    }
+    this.renderTimer();
+  }
+
+  private applyRoleAssigned(data: MafiaRoleAssignedEvent): void {
+    this.myRole = data;
+    const name = data.roleInfo?.name ?? data.role;
+    const team = data.roleInfo?.team ?? '—';
+    const desc = data.roleInfo?.description ?? '';
+    this.roleNameText.setText(name.toString());
+    this.roleTeamText.setText(`Facção: ${team}`);
+    this.roleDescText.setText(desc.toString().slice(0, 120));
+    this.showRoleReveal(data);
+  }
+
+  private applyDeath(playerId: string): void {
+    this.alive.delete(playerId);
+    this.refreshPlayerList();
+    soundManager.playSfx('slide', 0.7);
+  }
+
+  // ============== VOTE / ABILITY / NIGHT FEEDBACK ==============
+  private applyVoteReceived(data: MafiaVoteReceivedEvent): void {
+    if (data.skipped || !data.targetId) {
+      this.showResultBanner(`${this.players.get(data.voterId)?.username ?? '?'} pulou o voto.`, '#8a8aa6');
+      return;
+    }
+    if (typeof data.voteCount === 'number') {
+      this.voteCounts.set(data.targetId, data.voteCount);
+    } else {
+      this.voteCounts.set(data.targetId, (this.voteCounts.get(data.targetId) ?? 0) + 1);
+    }
+    this.refreshPlayerList();
+    const voter = this.players.get(data.voterId)?.username ?? data.voterId.slice(0, 6);
+    const target = this.players.get(data.targetId)?.username ?? data.targetId.slice(0, 6);
+    this.showResultBanner(`${voter} votou em ${target}`, '#f3c54a');
+  }
+
+  private applyVoteResult(data: MafiaVoteResultEvent): void {
+    if (data.tie) {
+      this.showResultBanner('Empate na votação — ninguém foi linchado.', '#8a8aa6');
+      soundManager.playSfx('select', 0.6);
+      return;
+    }
+    if (data.eliminated) {
+      const name = data.eliminatedName ?? data.eliminated.slice(0, 6);
+      const role = data.eliminatedRole ? ` (era ${data.eliminatedRole})` : '';
+      this.showResultBanner(`${name} foi linchado${role}`, '#e85a5a');
+      soundManager.playSfx('slide', 0.8);
+    } else {
+      this.showResultBanner('Votação encerrada sem eliminação.', '#8a8aa6');
+      soundManager.playSfx('select', 0.5);
+    }
+  }
+
+  private applyAbilityResult(data: MafiaAbilityResultEvent): void {
+    // Ability result é PRIVADO (server emite apenas pro autor da ação).
+    // Vidente: result = { targetName, role, team } → mostrar destaque.
+    if (data.type === 'CHECK' && data.result) {
+      const tn = data.result.targetName ?? data.result.targetId ?? '?';
+      const role = data.result.role ?? '?';
+      this.showResultBanner(`👁 ${tn} é ${role}`, '#5a72d4', 5000);
+      return;
+    }
+    if (data.message) {
+      this.showResultBanner(data.message, '#d4a017');
+    }
+  }
+
+  private applyNightResults(data: MafiaNightResultsEvent): void {
+    if (!data.deaths || data.deaths.length === 0) {
+      this.showResultBanner('A noite terminou. Ninguém morreu.', '#86b56a', 4000);
+      soundManager.playSfx('select', 0.5);
+      return;
+    }
+    const list = data.deaths
+      .map((d) => `${d.playerName ?? d.playerId.slice(0, 6)}${d.role ? ` (${d.role})` : ''}`)
+      .join(', ');
+    this.showResultBanner(`☠ Mortes na noite: ${list}`, '#c53030', 5500);
+    soundManager.playSfx('slide', 0.9);
+  }
+
+  // ============== RESULT BANNER ==============
+  private resultBanner?: Phaser.GameObjects.Container;
+
+  private showResultBanner(text: string, colorHex: string, durationMs = 3500): void {
+    this.resultBanner?.destroy();
+    const cy = GAME_HEIGHT - 130;
+    const w = Math.min(GAME_WIDTH - 360, 540);
+    const x = (GAME_WIDTH - w) / 2;
+    const h = 38;
+
+    const c = this.add.container(0, 0);
+    c.setDepth(900);
+    this.resultBanner = c;
+
+    const bg = this.add.graphics();
+    bg.fillStyle(0x000000, 0.85);
+    bg.fillRoundedRect(x, cy, w, h, 6);
+    bg.lineStyle(1, hexStrToNumber(colorHex), 0.8);
+    bg.strokeRoundedRect(x, cy, w, h, 6);
+
+    const accent = this.add.graphics();
+    accent.fillStyle(hexStrToNumber(colorHex), 1);
+    accent.fillRect(x, cy, 3, h);
+
+    const label = this.add
+      .text(x + w / 2, cy + h / 2, text, {
+        fontFamily: 'monospace',
+        fontSize: '12px',
+        color: colorHex,
+        fontStyle: 'bold',
+      })
+      .setOrigin(0.5);
+
+    c.add([bg, accent, label]);
+    c.setAlpha(0);
+    this.tweens.add({ targets: c, alpha: 1, duration: 180 });
+    this.time.delayedCall(durationMs, () => {
+      this.tweens.add({
+        targets: c,
+        alpha: 0,
+        duration: 220,
+        onComplete: () => c.destroy(),
+      });
+    });
+  }
+
+  // ============== PHASE TRANSITION OVERLAY ==============
+  private phaseTransitionContainer?: Phaser.GameObjects.Container;
+
+  private playPhaseTransition(phase: MafiaPhase, dayNumber: number): void {
+    if (phase === 'LOBBY') return;
+    // Limpa transição anterior em andamento
+    this.phaseTransitionContainer?.destroy();
+
+    const container = this.add.container(0, 0);
+    container.setDepth(1000);
+    this.phaseTransitionContainer = container;
+
+    const bg = this.add.graphics();
+    bg.fillStyle(0x000000, 0.85);
+    bg.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
+
+    const colorNum = hexStrToNumber(PHASE_COLORS[phase]);
+
+    const accent = this.add.graphics();
+    accent.fillStyle(colorNum, 0.18);
+    accent.fillRect(0, GAME_HEIGHT / 2 - 80, GAME_WIDTH, 160);
+    accent.lineStyle(2, colorNum, 0.6);
+    accent.lineBetween(0, GAME_HEIGHT / 2 - 80, GAME_WIDTH, GAME_HEIGHT / 2 - 80);
+    accent.lineBetween(0, GAME_HEIGHT / 2 + 80, GAME_WIDTH, GAME_HEIGHT / 2 + 80);
+
+    const dayPrefix = dayNumber > 0 ? `DIA ${dayNumber} · ` : '';
+    const title = this.add
+      .text(GAME_WIDTH / 2, GAME_HEIGHT / 2 - 20, dayPrefix + PHASE_TRANSITION_TITLES[phase], {
+        fontFamily: 'monospace',
+        fontSize: '32px',
+        color: PHASE_COLORS[phase],
+        fontStyle: 'bold',
+      })
+      .setOrigin(0.5);
+
+    const subtitle = this.add
+      .text(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 26, PHASE_TRANSITION_SUBTITLES[phase], {
+        fontFamily: 'monospace',
+        fontSize: '13px',
         color: '#e8e2d0',
       })
       .setOrigin(0.5);
 
-    c.add([bg, txt]);
-    c.setData('text', txt);
-    this.interactPrompt = c;
+    container.add([bg, accent, title, subtitle]);
+    container.setAlpha(0);
 
     this.tweens.add({
-      targets: c,
-      y: GAME_HEIGHT - 82,
-      duration: 700,
-      yoyo: true,
-      repeat: -1,
-      ease: 'Sine.easeInOut',
-    });
-  }
-
-  // ===== Dialog box (mostrada em interact:trigger) =====
-  private buildDialog(): void {
-    const c = this.add.container(GAME_WIDTH / 2, GAME_HEIGHT - 60).setVisible(false);
-    const w = GAME_WIDTH - 80;
-    const h = 80;
-
-    const bg = this.add.graphics();
-    bg.fillStyle(PALETTE.uiBg, 0.96);
-    bg.fillRoundedRect(-w / 2, -h / 2, w, h, 6);
-    bg.lineStyle(2, PALETTE.uiAccent, 0.8);
-    bg.strokeRoundedRect(-w / 2, -h / 2, w, h, 6);
-
-    const txt = this.add
-      .text(-w / 2 + 14, -h / 2 + 14, '', {
-        fontFamily: 'monospace',
-        fontSize: '12px',
-        color: '#e8e2d0',
-        wordWrap: { width: w - 28 },
-        lineSpacing: 4,
-      })
-      .setOrigin(0, 0);
-
-    const hint = this.add
-      .text(w / 2 - 14, h / 2 - 14, '[E] continuar', {
-        fontFamily: 'monospace',
-        fontSize: '9px',
-        color: '#8a9a78',
-      })
-      .setOrigin(1, 1);
-
-    c.add([bg, txt, hint]);
-    c.setData('text', txt);
-    this.dialog = c;
-  }
-
-  // ===== Indicador "salvo" (canto inferior direito) =====
-  private buildSaveIndicator(): void {
-    this.saveIndicator = this.add
-      .text(GAME_WIDTH - 8, GAME_HEIGHT - 8, '', {
-        fontFamily: 'monospace',
-        fontSize: '9px',
-        color: '#8a9a78',
-      })
-      .setOrigin(1, 1);
-  }
-
-  // ===== Wire eventos =====
-  private wireEvents(): void {
-    on('coin:collected', ({ total }) => {
-      this.coinText.setText(String(total));
-      this.tweens.add({
-        targets: this.coinText,
-        scale: { from: 1.4, to: 1 },
-        duration: 200,
-        ease: 'Back.easeOut',
-      });
-    });
-
-    on('player:damaged', ({ hp, maxHp }) => {
-      this.refreshHearts(hp, maxHp);
-    });
-
-    on('player:healed', ({ hp, maxHp }) => {
-      this.refreshHearts(hp, maxHp);
-    });
-
-    on('interact:prompt', ({ show, label }) => {
-      this.interactPrompt.setVisible(show);
-      if (show && label) {
-        const t = this.interactPrompt.getData('text') as Phaser.GameObjects.Text;
-        t.setText(`[E] ${label}`);
-      }
-    });
-
-    on('interact:trigger', ({ targetId, text }) => {
-      // text vem do mapDef.signText quando emit é da WorldScene; fallback pra dialogFor
-      this.showDialog(text ?? this.dialogFor(targetId));
-    });
-
-    on('map:entered', ({ label }) => {
-      this.showMapBanner(label);
-    });
-
-    on('state:saved', ({ at }) => {
-      const time = new Date(at).toLocaleTimeString('pt-BR');
-      this.saveIndicator.setText(`✓ salvo às ${time}`);
-      this.tweens.add({
-        targets: this.saveIndicator,
-        alpha: { from: 1, to: 0.3 },
-        duration: 1800,
-        ease: 'Linear',
-      });
-    });
-  }
-
-  private dialogFor(id: string): string {
-    // Fallback pra signs sem text customizado no mapDef.
-    return id ? `(sem texto: ${id})` : '...';
-  }
-
-  /** Banner curto top-center exibido ao entrar num novo mapa. Fade in/out 2s. */
-  private showMapBanner(label: string): void {
-    const x = GAME_WIDTH / 2;
-    const y = 64;
-
-    const bg = this.add.graphics().setAlpha(0);
-    const labelW = label.length * 14 + 60;
-    bg.fillStyle(PALETTE.uiBg, 0.85);
-    bg.fillRoundedRect(x - labelW / 2, y - 18, labelW, 36, 6);
-    bg.lineStyle(1, PALETTE.uiAccent, 0.9);
-    bg.strokeRoundedRect(x - labelW / 2, y - 18, labelW, 36, 6);
-
-    const text = this.add
-      .text(x, y, label, {
-        fontFamily: 'monospace',
-        fontSize: '20px',
-        color: '#d9b262',
-        fontStyle: 'bold',
-      })
-      .setOrigin(0.5)
-      .setAlpha(0);
-
-    this.tweens.add({
-      targets: [bg, text],
-      alpha: { from: 0, to: 1 },
-      duration: 250,
-      yoyo: true,
-      hold: 1400,
-      ease: 'Sine.easeInOut',
+      targets: container,
+      alpha: 1,
+      duration: 220,
+      ease: 'Sine.easeOut',
       onComplete: () => {
-        bg.destroy();
-        text.destroy();
+        this.tweens.add({
+          targets: container,
+          alpha: 0,
+          duration: 350,
+          delay: 1100,
+          ease: 'Sine.easeIn',
+          onComplete: () => container.destroy(),
+        });
       },
     });
   }
 
-  private showDialog(text: string): void {
-    const t = this.dialog.getData('text') as Phaser.GameObjects.Text;
-    t.setText(text);
-    this.dialog.setVisible(true);
-    this.dialog.setAlpha(0);
-    this.tweens.add({ targets: this.dialog, alpha: 1, duration: 150 });
+  // ============== ROLE REVEAL MODAL ==============
+  private roleRevealContainer?: Phaser.GameObjects.Container;
 
-    const kb = this.input.keyboard;
+  private showRoleReveal(data: MafiaRoleAssignedEvent): void {
+    this.roleRevealContainer?.destroy();
+
+    const container = this.add.container(0, 0);
+    container.setDepth(1100);
+    this.roleRevealContainer = container;
+
+    const bg = this.add.graphics();
+    bg.fillStyle(0x000000, 0.9);
+    bg.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
+
+    const cardW = 360;
+    const cardH = 280;
+    const cx = GAME_WIDTH / 2;
+    const cy = GAME_HEIGHT / 2;
+    const teamStr = (data.roleInfo?.team ?? 'NEUTRAL').toString();
+    const teamColor = TEAM_COLORS[teamStr] ?? TEAM_COLORS.NEUTRAL!;
+
+    const card = this.add.graphics();
+    card.fillStyle(0x14141c, 1);
+    card.fillRoundedRect(cx - cardW / 2, cy - cardH / 2, cardW, cardH, 12);
+    card.lineStyle(2, teamColor, 1);
+    card.strokeRoundedRect(cx - cardW / 2, cy - cardH / 2, cardW, cardH, 12);
+
+    // Faixa colorida no topo do card
+    const topStrip = this.add.graphics();
+    topStrip.fillStyle(teamColor, 0.25);
+    topStrip.fillRoundedRect(cx - cardW / 2 + 2, cy - cardH / 2 + 2, cardW - 4, 56, 10);
+
+    const tagline = this.add
+      .text(cx, cy - cardH / 2 + 22, 'SEU PAPEL É', {
+        fontFamily: 'monospace',
+        fontSize: '11px',
+        color: '#8a8aa6',
+        letterSpacing: 4,
+      })
+      .setOrigin(0.5);
+
+    const roleName = this.add
+      .text(cx, cy - cardH / 2 + 46, (data.roleInfo?.name ?? data.role).toString().toUpperCase(), {
+        fontFamily: 'monospace',
+        fontSize: '26px',
+        color: '#e8e2d0',
+        fontStyle: 'bold',
+      })
+      .setOrigin(0.5);
+
+    const team = this.add
+      .text(cx, cy - cardH / 2 + 80, `FACÇÃO: ${teamStr}`, {
+        fontFamily: 'monospace',
+        fontSize: '11px',
+        color: '#' + teamColor.toString(16).padStart(6, '0'),
+        fontStyle: 'bold',
+      })
+      .setOrigin(0.5);
+
+    const desc = this.add
+      .text(cx, cy - 4, (data.roleInfo?.description ?? '').toString(), {
+        fontFamily: 'monospace',
+        fontSize: '12px',
+        color: '#e8e2d0',
+        align: 'center',
+        wordWrap: { width: cardW - 32 },
+        lineSpacing: 4,
+      })
+      .setOrigin(0.5);
+
+    const teammatesNames = (data.teammates ?? [])
+      .map((t) => t.username ?? t.playerId.slice(0, 6))
+      .join(', ');
+    const teammatesText = this.add
+      .text(
+        cx,
+        cy + cardH / 2 - 56,
+        teammatesNames ? `Aliados: ${teammatesNames}` : '',
+        {
+          fontFamily: 'monospace',
+          fontSize: '11px',
+          color: '#d4a017',
+          align: 'center',
+          wordWrap: { width: cardW - 32 },
+        },
+      )
+      .setOrigin(0.5);
+
+    const dismiss = this.add
+      .text(cx, cy + cardH / 2 - 22, '[ ENTENDI ]', {
+        fontFamily: 'monospace',
+        fontSize: '11px',
+        color: '#d4a017',
+        fontStyle: 'bold',
+      })
+      .setOrigin(0.5)
+      .setInteractive({ useHandCursor: true });
+
+    container.add([bg, card, topStrip, tagline, roleName, team, desc, teammatesText, dismiss]);
+    container.setAlpha(0);
+    this.tweens.add({ targets: container, alpha: 1, duration: 280, ease: 'Sine.easeOut' });
+
     const close = () => {
       this.tweens.add({
-        targets: this.dialog,
+        targets: container,
         alpha: 0,
-        duration: 120,
-        onComplete: () => this.dialog.setVisible(false),
+        duration: 220,
+        ease: 'Sine.easeIn',
+        onComplete: () => container.destroy(),
       });
-      kb?.off('keydown-E', close);
-      kb?.off('keydown-ENTER', close);
-      kb?.off('keydown-SPACE', close);
+      autoTimer.remove();
     };
-    // pequeno delay pra não capturar o E que abriu o dialog
-    this.time.delayedCall(150, () => {
-      kb?.once('keydown-E', close);
-      kb?.once('keydown-ENTER', close);
-      kb?.once('keydown-SPACE', close);
-    });
+
+    dismiss.on('pointerdown', close);
+    // Auto-close após 5s
+    const autoTimer = this.time.delayedCall(5000, close);
+  }
+
+  // ============== SOCKET WIRE ==============
+  private wireSocket(): void {
+    socketService.on<MafiaPhaseChangedEvent>('mafia:phase_changed', this.onPhaseChanged);
+    socketService.on<MafiaTimerUpdateEvent>('mafia:timer_update', this.onTimerUpdate);
+    socketService.on<MafiaRoleAssignedEvent>('mafia:role_assigned', this.onRoleAssigned);
+    socketService.on<{ playerId: string }>('mafia:player_died', this.onPlayerDied);
+    socketService.on<MafiaVoteReceivedEvent>('mafia:vote_received', this.onVoteReceived);
+    socketService.on<MafiaVoteResultEvent>('mafia:vote_result', this.onVoteResult);
+    socketService.on<MafiaAbilityResultEvent>('mafia:ability_result', this.onAbilityResult);
+    socketService.on<MafiaNightResultsEvent>('mafia:night_results', this.onNightResults);
+  }
+
+  private unwireSocket(): void {
+    socketService.off('mafia:phase_changed', this.onPhaseChanged);
+    socketService.off('mafia:timer_update', this.onTimerUpdate);
+    socketService.off('mafia:role_assigned', this.onRoleAssigned);
+    socketService.off('mafia:player_died', this.onPlayerDied);
+    socketService.off('mafia:vote_received', this.onVoteReceived);
+    socketService.off('mafia:vote_result', this.onVoteResult);
+    socketService.off('mafia:ability_result', this.onAbilityResult);
+    socketService.off('mafia:night_results', this.onNightResults);
   }
 }

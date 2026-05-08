@@ -1,0 +1,122 @@
+/* ============================================================
+   ROOM MODAL — formulário de criar sala
+   ============================================================ */
+#room-modal {
+  position: fixed;
+  inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 25;
+  background: rgba(6, 7, 17, 0.7);
+  backdrop-filter: blur(4px);
+}
+#room-modal.visible {
+  display: flex;
+}
+.room-modal-card {
+  width: min(420px, 92vw);
+  background: rgba(12, 13, 26, 0.95);
+  border: 1px solid rgba(212, 160, 23, 0.3);
+  border-radius: 10px;
+  padding: 28px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.7);
+}
+.room-modal-card h3 {
+  margin: 0 0 18px;
+  font-family: "Scrubland", "Cinzel", serif;
+  font-size: 22px;
+  color: var(--gold-400);
+  letter-spacing: 0.04em;
+}
+.room-modal-card label {
+  display: block;
+  font-family: "Kanit", sans-serif;
+  font-size: 11px;
+  color: var(--muted);
+  margin: 14px 0 6px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-weight: 700;
+}
+.room-modal-card input,
+.room-modal-card select {
+  width: 100%;
+  padding: 11px 14px;
+  box-sizing: border-box;
+  background: rgba(6, 7, 17, 0.6);
+  border: 1px solid rgba(212, 160, 23, 0.2);
+  border-radius: 6px;
+  color: var(--text);
+  font-family: "Kanit", sans-serif;
+  font-size: 14px;
+  outline: none;
+}
+.room-modal-card input:focus,
+.room-modal-card select:focus {
+  border-color: var(--gold-500);
+  box-shadow: 0 0 0 3px rgba(212, 160, 23, 0.12);
+}
+.room-modal-card .checkbox-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 14px;
+  font-family: "Kanit", sans-serif;
+  font-size: 12px;
+  color: var(--text);
+}
+.room-modal-card .checkbox-row input {
+  width: auto;
+}
+.room-modal-card .actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 20px;
+}
+.room-modal-card button {
+  flex: 1;
+  padding: 11px;
+  border-radius: 6px;
+  font-family: "Scrubland", "Cinzel", serif;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+  border: none;
+  transition: all 0.15s;
+}
+.room-modal-card button.primary {
+  background: linear-gradient(
+    135deg,
+    var(--gold-400),
+    var(--gold-500) 80%
+  );
+  color: var(--midnight-950);
+}
+.room-modal-card button.primary:hover {
+  filter: brightness(1.1);
+}
+.room-modal-card button.secondary {
+  background: transparent;
+  color: var(--muted);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+.room-modal-card button.secondary:hover {
+  color: var(--text);
+  border-color: rgba(255, 255, 255, 0.25);
+}
+.room-modal-card .error {
+  margin-top: 12px;
+  padding: 8px 12px;
+  background: rgba(197, 48, 48, 0.12);
+  color: var(--danger);
+  border: 1px solid rgba(197, 48, 48, 0.3);
+  border-radius: 6px;
+  font-family: "Kanit", sans-serif;
+  font-size: 12px;
+  display: none;
+}
+.room-modal-card .error.visible {
+  display: block;
+}

@@ -1,0 +1,140 @@
+/* ============================================================
+   LOGIN OVERLAY — bg do silence + card centralizado
+   ============================================================ */
+/* Login overlay: bg vem de #world-bg (controlado pela LoginScene) */
+#login-overlay {
+  position: fixed;
+  inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 20;
+  pointer-events: none;
+}
+#login-overlay.visible {
+  display: flex;
+}
+#login-overlay > * {
+  pointer-events: auto;
+}
+
+.auth-card {
+  width: min(380px, 92vw);
+  background: rgba(12, 13, 26, 0.85);
+  border: 1px solid rgba(212, 160, 23, 0.25);
+  border-radius: 8px;
+  padding: 32px 28px;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  box-shadow:
+    0 24px 48px rgba(0, 0, 0, 0.6),
+    0 0 0 1px rgba(212, 160, 23, 0.06) inset,
+    0 0 60px rgba(212, 160, 23, 0.08);
+}
+.auth-card h1 {
+  font-family: "Scrubland", "Cinzel", serif;
+  margin: 0 0 4px;
+  font-size: 26px;
+  color: var(--gold-400);
+  letter-spacing: 0.04em;
+  text-shadow: 0 2px 8px rgba(212, 160, 23, 0.3);
+}
+.auth-card .subtitle {
+  margin: 0 0 24px;
+  font-family: "Kanit", sans-serif;
+  font-size: 13px;
+  color: var(--muted);
+}
+.auth-card label {
+  display: block;
+  font-family: "Kanit", sans-serif;
+  font-size: 11px;
+  color: var(--muted);
+  margin: 14px 0 6px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-weight: 700;
+}
+.auth-card input {
+  width: 100%;
+  padding: 11px 14px;
+  background: rgba(6, 7, 17, 0.6);
+  border: 1px solid rgba(212, 160, 23, 0.2);
+  border-radius: 6px;
+  color: var(--text);
+  font-size: 14px;
+  font-family: "Kanit", sans-serif;
+  box-sizing: border-box;
+  outline: none;
+  transition:
+    border-color 0.15s,
+    box-shadow 0.15s;
+}
+.auth-card input:focus {
+  border-color: var(--gold-500);
+  box-shadow: 0 0 0 3px rgba(212, 160, 23, 0.15);
+}
+.auth-card .actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 24px;
+}
+.auth-card button {
+  flex: 1;
+  padding: 12px;
+  border-radius: 6px;
+  font-family: "Scrubland", "Cinzel", serif;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  letter-spacing: 0.1em;
+  transition: all 0.15s;
+  border: none;
+}
+.auth-card button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.auth-card button.primary {
+  background: linear-gradient(
+    135deg,
+    var(--gold-400),
+    var(--gold-500) 80%
+  );
+  color: var(--midnight-950);
+  box-shadow: 0 4px 12px rgba(212, 160, 23, 0.3);
+}
+.auth-card button.primary:not(:disabled):hover {
+  filter: brightness(1.1);
+  box-shadow: 0 6px 18px rgba(212, 160, 23, 0.45);
+}
+.auth-card .switch {
+  margin-top: 20px;
+  text-align: center;
+  font-family: "Kanit", sans-serif;
+  font-size: 12px;
+  color: var(--muted-soft);
+}
+.auth-card .switch a {
+  color: var(--gold-400);
+  cursor: pointer;
+  text-decoration: none;
+  font-weight: 700;
+}
+.auth-card .switch a:hover {
+  text-decoration: underline;
+  color: var(--gold-300);
+}
+.auth-card .error {
+  margin-top: 14px;
+  padding: 10px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  background: rgba(197, 48, 48, 0.12);
+  color: var(--danger);
+  border: 1px solid rgba(197, 48, 48, 0.3);
+  display: none;
+}
+.auth-card .error.visible {
+  display: block;
+}

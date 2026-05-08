@@ -1,0 +1,16 @@
+/**
+ * Entrypoint de estilos do faithful-persona.
+ *
+ * Importado por main.ts. Vite bundla tudo em um único CSS no build.
+ * Cada arquivo encapsula os estilos de uma feature (overlay), facilitando
+ * a busca + manutenção. Variáveis (paleta gold/blood/midnight) estão em base.css.
+ */
+@import "./base.css";
+@import "./overlays/login.css";
+@import "./overlays/hub.css";
+@import "./overlays/lobby.css";
+@import "./overlays/room-modal.css";
+@import "./overlays/settings.css";
+@import "./overlays/profile.css";
+@import "./overlays/friends.css";
+@import "./overlays/shop.css";

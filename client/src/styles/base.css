@@ -1,0 +1,148 @@
+/* ============= FONTS LOCAIS (do silence-project) ============= */
+@font-face {
+  font-family: "Scrubland";
+  src: url("/assets/fonts/SCRUBLAND.ttf") format("truetype");
+  font-display: swap;
+}
+@font-face {
+  font-family: "Kanit";
+  src: url("/assets/fonts/Kanit-Regular.ttf") format("truetype");
+  font-weight: 400;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Kanit";
+  src: url("/assets/fonts/Kanit-Bold.ttf") format("truetype");
+  font-weight: 700;
+  font-display: swap;
+}
+
+:root {
+  color-scheme: dark;
+  /* Paleta silence: gold / blood / midnight */
+  --gold-300: #f3d27a;
+  --gold-400: #e8b94a;
+  --gold-500: #d4a017;
+  --gold-600: #a87d10;
+  --gold-700: #6e5108;
+  --blood-500: #c53030;
+  --blood-700: #7a1e1e;
+  --midnight-950: #060711;
+  --midnight-900: #0c0d1a;
+  --midnight-800: #161827;
+  --midnight-700: #232538;
+  --text: #ece9dc;
+  --muted: #8a8aa6;
+  --muted-soft: #5a5a72;
+  --danger: #e85a5a;
+  --success: #86b56a;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  overflow: hidden;
+  background: var(--midnight-950);
+  font-family:
+    "Kanit",
+    system-ui,
+    -apple-system,
+    sans-serif;
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+/* Background layer compartilhado entre cenas (atrás do canvas Phaser) */
+#world-bg {
+  position: fixed;
+  inset: 0;
+  background-size: cover;
+  background-position: center;
+  z-index: 0;
+  transition:
+    background-image 0.35s ease,
+    opacity 0.25s ease;
+}
+#world-bg::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    135deg,
+    rgba(6, 7, 17, 0.78) 0%,
+    rgba(6, 7, 17, 0.55) 50%,
+    rgba(6, 7, 17, 0.85) 100%
+  );
+}
+#world-bg.hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+#game {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1;
+}
+#game canvas {
+  display: block;
+  max-width: 100%;
+  max-height: 100%;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  background: transparent;
+}
+
+#boot-loader {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  background: var(--midnight-950);
+  color: var(--gold-400);
+  font-family: "Scrubland", "Cinzel", serif;
+  font-size: 18px;
+  letter-spacing: 0.3em;
+  z-index: 50;
+  transition: opacity 0.4s ease;
+  padding: 0 24px;
+  box-sizing: border-box;
+}
+#boot-loader.hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* Estados compartilhados (loading/empty) — usados em vários modais */
+.empty-state {
+  text-align: center;
+  padding: 28px 0;
+  font-family: "Kanit", sans-serif;
+  font-size: 13px;
+  color: var(--muted-soft);
+}
+.loading-state {
+  text-align: center;
+  padding: 28px 0;
+  font-family: "Kanit", sans-serif;
+  font-size: 12px;
+  color: var(--muted);
+}
+.section-title {
+  font-family: "Scrubland", "Cinzel", serif;
+  font-size: 14px;
+  color: var(--gold-300);
+  letter-spacing: 0.08em;
+  margin: 16px 0 8px;
+  text-transform: uppercase;
+}

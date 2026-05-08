@@ -1,0 +1,185 @@
+/* ============================================================
+   LOBBY OVERLAY (lista de salas) — bg sólido próprio
+   ============================================================ */
+#lobby-overlay {
+  position: fixed;
+  inset: 0;
+  display: none;
+  flex-direction: column;
+  z-index: 15;
+  background: rgba(6, 7, 17, 0.94);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+#lobby-overlay.visible {
+  display: flex;
+}
+
+.lobby-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 28px;
+  border-bottom: 1px solid rgba(212, 160, 23, 0.15);
+  background: rgba(6, 7, 17, 0.7);
+}
+.lobby-header .brand {
+  font-family: "Scrubland", "Cinzel", serif;
+  font-size: 20px;
+  color: var(--gold-400);
+  letter-spacing: 0.06em;
+}
+.lobby-header .user-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-family: "Kanit", sans-serif;
+  font-size: 13px;
+  color: var(--muted);
+}
+.lobby-header .user-info .username {
+  color: var(--gold-300);
+  font-weight: 700;
+  font-family: "Scrubland", "Cinzel", serif;
+  letter-spacing: 0.04em;
+}
+.lobby-header .close-btn {
+  background: transparent;
+  color: var(--muted);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 8px 14px;
+  border-radius: 6px;
+  font-family: "Kanit", sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  margin-right: 8px;
+  letter-spacing: 0.06em;
+  transition: all 0.15s;
+}
+.lobby-header .close-btn:hover {
+  color: var(--gold-400);
+  border-color: rgba(212, 160, 23, 0.4);
+}
+
+.lobby-toolbar {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  padding: 16px 28px;
+  background: rgba(6, 7, 17, 0.55);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+}
+.lobby-toolbar h2 {
+  margin: 0;
+  font-family: "Scrubland", "Cinzel", serif;
+  font-size: 22px;
+  color: var(--gold-400);
+  letter-spacing: 0.04em;
+  flex: 1;
+}
+.lobby-toolbar button {
+  background: linear-gradient(
+    135deg,
+    var(--gold-400),
+    var(--gold-500) 80%
+  );
+  color: var(--midnight-950);
+  border: none;
+  padding: 10px 18px;
+  border-radius: 6px;
+  font-family: "Scrubland", "Cinzel", serif;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+  transition: filter 0.15s;
+  box-shadow: 0 4px 12px rgba(212, 160, 23, 0.25);
+}
+.lobby-toolbar button:hover {
+  filter: brightness(1.1);
+}
+.lobby-toolbar button.refresh {
+  background: transparent;
+  color: var(--muted);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  font-family: "Kanit", sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  box-shadow: none;
+}
+.lobby-toolbar button.refresh:hover {
+  color: var(--gold-400);
+  border-color: rgba(212, 160, 23, 0.4);
+}
+
+#lobby-rooms {
+  flex: 1;
+  overflow-y: auto;
+  padding: 18px 28px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 14px;
+  align-content: start;
+}
+.room-card {
+  background: rgba(12, 13, 26, 0.85);
+  border: 1px solid rgba(212, 160, 23, 0.15);
+  border-radius: 8px;
+  padding: 16px 18px;
+  cursor: pointer;
+  transition: all 0.18s;
+  backdrop-filter: blur(4px);
+}
+.room-card:hover {
+  background: rgba(22, 24, 39, 0.9);
+  border-color: rgba(212, 160, 23, 0.45);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+}
+.room-card .name {
+  font-family: "Scrubland", "Cinzel", serif;
+  font-size: 18px;
+  color: var(--gold-400);
+  margin-bottom: 6px;
+  letter-spacing: 0.04em;
+}
+.room-card .meta {
+  font-family: "Kanit", sans-serif;
+  font-size: 12px;
+  color: var(--muted);
+  display: flex;
+  justify-content: space-between;
+}
+.room-card .meta .host {
+  color: var(--gold-300);
+  font-weight: 700;
+}
+.room-card .desc {
+  margin-top: 10px;
+  font-family: "Kanit", sans-serif;
+  font-size: 12px;
+  color: var(--muted-soft);
+  min-height: 16px;
+}
+
+.lobby-empty {
+  grid-column: 1 / -1;
+  text-align: center;
+  padding: 60px 20px;
+  font-family: "Kanit", sans-serif;
+  color: var(--muted-soft);
+  font-size: 13px;
+}
+.lobby-status {
+  padding: 12px 28px;
+  font-family: "Kanit", sans-serif;
+  font-size: 11px;
+  color: var(--muted);
+  border-top: 1px solid rgba(255, 255, 255, 0.04);
+  background: rgba(6, 7, 17, 0.7);
+  letter-spacing: 0.04em;
+}
+.lobby-status.error {
+  color: var(--danger);
+}
